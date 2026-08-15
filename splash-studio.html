@@ -11,7 +11,7 @@
   --bg:#0a1119;--panel:#101a24;--panel2:#0c1620;--border:#1e2c39;--border-soft:#16212c;
   --text:#e7eff5;--text-muted:#7c90a0;--accent:#33d6e0;--accent-dim:#1c7a80;--warn:#ff6b57;
   --wk:#33d6e0;--ss:#ff9e5e;--sg:#b98cff;--rs:#59e6a6;--pl:#ff6fa5;
-  --scr:#ffc24b;--gen:#7fa8ff;--mdl:#4fd1c5;
+  --scr:#ffc24b;--gen:#7fa8ff;--mdl:#4fd1c5;--sp:#c9a15a;
   --toolbar-h:48px;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -119,6 +119,25 @@ ul.tree ul{padding-left:14px;}
 .output-line{white-space:pre-wrap;}
 .output-line .t{color:var(--text-muted);margin-right:8px;}
 .output-empty{color:var(--text-muted);}
+
+/* ── SPOTS TOOLBOX (like Roblox's Toolbox) ── */
+.spots-panel{
+  position:absolute;left:0;right:0;top:0;z-index:45;
+  background:rgba(12,10,6,.97);border-bottom:1px solid var(--border);
+  display:none;flex-wrap:wrap;gap:10px;padding:14px 16px;align-content:flex-start;
+}
+.spots-panel.active{display:flex;}
+.spots-panel-title{width:100%;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--sp);margin-bottom:2px;display:flex;justify-content:space-between;align-items:center;}
+.spots-panel-title button{background:transparent;border:none;color:var(--text-muted);font-size:14px;padding:2px 6px;border-radius:4px;}
+.spots-panel-title button:hover{background:rgba(255,255,255,.08);color:var(--text);}
+.spots-tile{
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+  width:82px;padding:12px 6px;border-radius:10px;background:var(--panel2);
+  border:1px solid var(--border);cursor:pointer;
+}
+.spots-tile:hover{border-color:var(--sp);background:rgba(201,161,90,.14);}
+.spots-tile .icon{font-size:22px;}
+.spots-tile .label{font-size:10.5px;text-align:center;color:var(--text-muted);line-height:1.3;}
 .tabbar{
   height:36px;flex:0 0 auto;display:flex;align-items:stretch;
   background:var(--panel2);border-bottom:1px solid var(--border);overflow-x:auto;
@@ -178,6 +197,34 @@ ul.tree ul{padding-left:14px;}
   width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.75);
   box-shadow:0 0 0 1.5px rgba(0,0,0,.4);pointer-events:none;
 }
+
+/* ── CODE-ENTRY (coded doors) — an in-page overlay, not window.prompt(),
+   so it works reliably even while Pointer Lock is engaged ── */
+.code-entry{
+  position:absolute;inset:0;z-index:70;background:rgba(4,8,12,.75);
+  display:none;align-items:center;justify-content:center;
+}
+.code-entry.active{display:flex;}
+.code-box{
+  background:#101a24;border:1px solid #2a3d4e;border-radius:12px;
+  padding:24px 26px;width:260px;text-align:center;
+}
+.code-title{font-size:14px;font-weight:600;margin-bottom:14px;color:#e7eff5;}
+.code-box input{
+  width:100%;background:#0b1520;border:1px solid #2a3d4e;border-radius:8px;
+  padding:10px 12px;color:#e7eff5;font-size:16px;text-align:center;letter-spacing:2px;
+  font-family:'JetBrains Mono',monospace;
+}
+.code-box input:focus{outline:none;border-color:#33d6e0;}
+.code-error{color:#ff8a7a;font-size:11.5px;margin-top:8px;min-height:14px;}
+.code-actions{display:flex;gap:8px;margin-top:14px;}
+.code-actions button{
+  flex:1;padding:8px;border-radius:7px;border:1px solid #2a3d4e;background:#0b1520;
+  color:#e7eff5;font-size:12.5px;cursor:pointer;
+}
+.code-actions button:hover{background:#152030;}
+#codeEntrySubmit{background:#33d6e0;color:#052226;border-color:#33d6e0;font-weight:600;}
+#codeEntrySubmit:hover{filter:brightness(1.1);}
 
 /* EDITOR */
 .editor-wrap{flex:1;display:none;flex-direction:column;min-height:0;}
@@ -307,6 +354,7 @@ body.show-explorer .backdrop,body.show-properties .backdrop{display:block;}
   </div>
 
   <div class="tb-group">
+    <button class="tb-btn" id="spots-toggle" title="Toolbox — portes, fenêtres, meubles"><span class="tb-icon">🧰</span>Spots</button>
     <button class="tb-btn" id="output-toggle" title="Afficher/masquer l'Output"><span class="tb-icon">🖥</span>Output</button>
   </div>
 
@@ -335,6 +383,16 @@ body.show-explorer .backdrop,body.show-properties .backdrop{display:block;}
   <div class="center">
     <div class="tabbar" id="tabbar"></div>
 
+    <div class="spots-panel" id="spotsPanel">
+      <div class="spots-panel-title"><span>🧰 Spots — clique pour ajouter dans Workspace</span><button id="spots-close">✕</button></div>
+      <div class="spots-tile" data-prop="door"><span class="icon">🚪</span><span class="label">Porte</span></div>
+      <div class="spots-tile" data-prop="autodoor"><span class="icon">🚪</span><span class="label">Porte auto</span></div>
+      <div class="spots-tile" data-prop="codedoor"><span class="icon">🔒</span><span class="label">Porte à code</span></div>
+      <div class="spots-tile" data-prop="window"><span class="icon">⬜</span><span class="label">Fenêtre</span></div>
+      <div class="spots-tile" data-prop="table"><span class="icon">▭</span><span class="label">Table</span></div>
+      <div class="spots-tile" data-prop="chair"><span class="icon">◱</span><span class="label">Chaise</span></div>
+    </div>
+
     <div class="output-panel" id="outputPanel">
       <div class="output-header">
         <span>🖥 Output</span>
@@ -362,7 +420,19 @@ body.show-explorer .backdrop,body.show-properties .backdrop{display:block;}
         <div class="play-controls">
           <button class="play-esc-btn" id="stop-btn">■ Arrêter (Échap)</button>
         </div>
-        <div class="play-info">Z Q S D = se déplacer · Espace = sauter · Clic = regarder avec la souris · Au-dessus d'un bloc, tu peux le traverser</div>
+        <div class="play-info">Z Q S D = se déplacer · Espace = sauter · E = ouvrir une porte · Clique-glisse (ou juste bouge après un clic) = regarder</div>
+      </div>
+
+      <div class="code-entry" id="codeEntry">
+        <div class="code-box">
+          <div class="code-title" id="codeEntryTitle">Code de la porte</div>
+          <input type="text" id="codeEntryInput" inputmode="numeric" autocomplete="off" placeholder="Code">
+          <div class="code-error" id="codeEntryError"></div>
+          <div class="code-actions">
+            <button id="codeEntryCancel">Annuler</button>
+            <button id="codeEntrySubmit">Valider</button>
+          </div>
+        </div>
       </div>
 
       <div class="gizmo-hint" id="gizmoHint">
@@ -413,6 +483,7 @@ mkRoot("scriptserver","ScriptServer","scripts");
 mkRoot("scriptgeneral","ScriptGeneral","scripts");
 mkRoot("replicatedstorage","ReplicatedStorage","mixed");
 mkRoot("players","Players","scripts");
+mkRoot("spots","Spots","props");
 
 function getRootAncestor(node){
   let cur=node; while(cur.parent!==null)cur=nodes[cur.parent]; return cur;
@@ -431,7 +502,7 @@ function randomColor(){
 
 function nextPos(){
   const i=blockCounter++;
-  return {x:(i%5)*6-12, y:3, z:Math.floor(i/5)*6};
+  return {x:(i%5)*6-12, y:2, z:Math.floor(i/5)*6}; // y:2 = bottom face rests exactly on the baseplate (top at y=0)
 }
 
 function starterCode(type,name){
@@ -439,15 +510,51 @@ function starterCode(type,name){
   return `-- Genvisit Codavaso : ${name}\n-- Executé côté client (joueur)\n\nevenement Demarrage()\n    local joueur = JoueurLocal\n    afficher(joueur.Nom .. " est en jeu")\nfin\n`;
 }
 
+function doorScriptTemplate(type,name,code){
+  if(type==="door"){
+    return `if.key(e).touch(bloc.${name})
+      bloc.${name}(rotation(90))
+           wait(5)
+           bloc.${name}(rotation(-90))
+           end
+      end
+end.final
+`;
+  }
+  if(type==="autodoor"){
+    return `if.player.view(1pixelpoint/bloc.${name})
+      bloc.${name}(x = -1pixelpoint)
+           wait(2.5)
+           bloc.${name}(x = 1pixelpoint)
+           end
+      end
+end.final
+`;
+  }
+  return `if.code(${code}).go/-(bloc.${name})/if.touch(code):(${code}).go ; open
+      bloc.${name}(rotation(90))
+           wait(5)
+           bloc.${name}(rotation(-90))
+           end
+      end
+end.final
+`;
+}
+
 // ── what can be inserted where ──
+const PROP_TYPES=["door","autodoor","codedoor","window","table","chair"];
+const DOOR_TYPES=["door","autodoor","codedoor"];
+
 function allowedInserts(node){
   if(node.type==="script"||node.type==="genvisit") return [];
-  // blocks can contain scripts
-  if(node.type==="block") return ["script","genvisit"];
+  if(["window","table","chair"].includes(node.type)) return [];
+  // blocks and doors can contain scripts
+  if(node.type==="block"||DOOR_TYPES.includes(node.type)) return ["script","genvisit"];
   if(node.type==="root"||node.type==="folder"||node.type==="model"){
-    if(node.kind==="world")    return ["block","model","script","genvisit"];
+    if(node.kind==="world")    return ["block","model","script","genvisit",...PROP_TYPES];
     if(node.kind==="scripts")  return ["script","genvisit","folder"];
     if(node.kind==="mixed")    return ["script","genvisit","block","model","folder"];
+    if(node.kind==="props")    return PROP_TYPES.slice();
   }
   return [];
 }
@@ -457,8 +564,16 @@ const INSERT_META={
   model:   {label:"Modèle",  glyph:"⬚"},
   script:  {label:"Script",  glyph:"{}"},
   genvisit:{label:"Genvisit",glyph:"▶"},
-  folder:  {label:"Dossier", glyph:"📁"}
+  folder:  {label:"Dossier", glyph:"📁"},
+  door:    {label:"Porte", glyph:"🚪"},
+  autodoor:{label:"Porte automatique", glyph:"🚪"},
+  codedoor:{label:"Porte à code", glyph:"🔒"},
+  window:  {label:"Fenêtre", glyph:"⬜"},
+  table:   {label:"Table", glyph:"▭"},
+  chair:   {label:"Chaise", glyph:"◱"}
 };
+
+const VISIBLE_ROOTS=["workspace","spots"];
 
 function addChild(parentId,type){
   const parent=nodes[parentId]; if(!parent)return null;
@@ -477,16 +592,37 @@ function addChild(parentId,type){
   if(type==="script"||type==="genvisit"){
     node.enabled=true; node.code=starterCode(type,name);
   }
+  if(PROP_TYPES.includes(type)){
+    const propColors={door:"#8a5a3a",autodoor:"#7a8a99",codedoor:"#8a5a3a",window:"#9fd6e6",table:"#a9865a",chair:"#a9865a"};
+    node.color=propColors[type];
+    node.position=nextPos(); node.position.y=0; // props sit at floor level (their own geometry is built above y=0)
+    node.rotation={x:0,y:0,z:0};
+    node.width = (type==="window") ? 3 : 2;
+    if(type==="codedoor") node.doorCode="1234";
+  }
 
   nodes[id]=node;
   parent.children.push(id);
   expandedSet.add(parentId);
 
-  // spawn in 3D if under workspace tree
+  // spawn in 3D if under a visible root (Workspace or Spots)
   const root=getRootAncestor(node);
-  if(root.id==="workspace"){
+  if(VISIBLE_ROOTS.includes(root.id)){
     if(type==="block") spawnBlock(node, parent);
     if(type==="model") spawnGroup(node, parent);
+    if(PROP_TYPES.includes(type)) spawnProp(node, parent);
+  }
+
+  // doors get their interaction script attached automatically
+  if(DOOR_TYPES.includes(type)){
+    const scriptId=uid();
+    const scriptNode={
+      id:scriptId, name:"Interaction", type:"script", parent:id, children:[], enabled:true,
+      code:doorScriptTemplate(type, node.name, node.doorCode)
+    };
+    nodes[scriptId]=scriptNode;
+    node.children.push(scriptId);
+    expandedSet.add(id);
   }
 
   renderTree(); selectNode(id);
@@ -533,8 +669,10 @@ scene.add(new THREE.AmbientLight(0x335566,.35));
 scene.add(new THREE.GridHelper(80,40,0x1c3a44,0x142530));
 
 const worldGroup=new THREE.Group(); scene.add(worldGroup);
-const obj3D={"workspace":worldGroup};
+const spotsGroup=new THREE.Group(); scene.add(spotsGroup);
+const obj3D={"workspace":worldGroup,"spots":spotsGroup};
 const blockMeshes=[];
+const propMeshes=[];
 
 const textureLoader=new THREE.TextureLoader();
 function applyTexture(mesh,node){
@@ -575,12 +713,64 @@ function spawnGroup(node, parent){
   obj3D[node.id]=g;
 }
 
+function spawnProp(node, parent){
+  const group=new THREE.Group();
+  group.position.set(node.position.x,node.position.y,node.position.z);
+  group.rotation.y=THREE.MathUtils.degToRad(node.rotation.y||0);
+  const mat=new THREE.MeshStandardMaterial({color:node.color, roughness:.6, metalness:.1});
+  const w=node.width||2;
+
+  if(node.type==="door"||node.type==="autodoor"||node.type==="codedoor"){
+    const leaf=new THREE.Mesh(new THREE.BoxGeometry(w,3.2,0.18),mat);
+    leaf.position.y=1.6;
+    group.add(leaf);
+    group.userData.width=w;
+    group.userData.doorState="closed";
+    group.userData.doorProgress=0;
+    if(node.type==="codedoor"){
+      const lock=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.22,0.22), new THREE.MeshStandardMaterial({color:0xff5555}));
+      lock.position.set(w/2-0.3,1.2,0.15);
+      group.add(lock);
+    }
+  } else if(node.type==="window"){
+    const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,2.2,0.12), new THREE.MeshStandardMaterial({color:node.color,transparent:true,opacity:.4,roughness:.15,metalness:.3}));
+    mesh.position.y=1.6;
+    group.add(mesh);
+  } else if(node.type==="table"){
+    const top=new THREE.Mesh(new THREE.BoxGeometry(2.4,0.15,1.4),mat); top.position.y=1.1; group.add(top);
+    const legGeo=new THREE.BoxGeometry(0.12,1.1,0.12);
+    [[-1.05,-0.6],[1.05,-0.6],[-1.05,0.6],[1.05,0.6]].forEach(([lx,lz])=>{
+      const leg=new THREE.Mesh(legGeo,mat); leg.position.set(lx,0.55,lz); group.add(leg);
+    });
+  } else if(node.type==="chair"){
+    const seat=new THREE.Mesh(new THREE.BoxGeometry(0.9,0.12,0.9),mat); seat.position.y=0.9; group.add(seat);
+    const back=new THREE.Mesh(new THREE.BoxGeometry(0.9,0.9,0.12),mat); back.position.set(0,1.4,-0.4); group.add(back);
+    const legGeo=new THREE.BoxGeometry(0.1,0.9,0.1);
+    [[-0.38,-0.38],[0.38,-0.38],[-0.38,0.38],[0.38,0.38]].forEach(([lx,lz])=>{
+      const leg=new THREE.Mesh(legGeo,mat); leg.position.set(lx,0.45,lz); group.add(leg);
+    });
+  }
+
+  group.userData.nodeId=node.id;
+  group.traverse(c=>{ if(c!==group) c.userData.nodeId=node.id; });
+  const p=obj3D[parent.id]||spotsGroup;
+  p.add(group); obj3D[node.id]=group; propMeshes.push(group);
+}
+
+function findNodeIdFromObject(obj){
+  let o=obj;
+  while(o){ if(o.userData && o.userData.nodeId) return o.userData.nodeId; o=o.parent; }
+  return null;
+}
+
 function dispose3D(id){
   const o=obj3D[id]; if(!o)return;
   if(o.geometry)o.geometry.dispose();
   if(o.material)o.material.dispose();
+  if(o.traverse) o.traverse(c=>{ if(c.geometry)c.geometry.dispose(); if(c.material)c.material.dispose(); });
   if(o.parent)o.parent.remove(o);
   const i=blockMeshes.indexOf(o); if(i>=0)blockMeshes.splice(i,1);
+  const j=propMeshes.indexOf(o); if(j>=0)propMeshes.splice(j,1);
   delete obj3D[id];
 }
 
@@ -677,6 +867,16 @@ document.getElementById("output-toggle").addEventListener("click",()=>outputPane
 document.getElementById("output-close").addEventListener("click",()=>outputPanel.classList.remove("active"));
 document.getElementById("output-clear").addEventListener("click",()=>{ outputLog.innerHTML=`<div class="output-empty">Rien pour l'instant.</div>`; });
 
+/* ── SPOTS TOOLBOX (like Roblox's Toolbox) ── */
+const spotsPanel=document.getElementById("spotsPanel");
+document.getElementById("spots-toggle").addEventListener("click",()=>spotsPanel.classList.toggle("active"));
+document.getElementById("spots-close").addEventListener("click",()=>spotsPanel.classList.remove("active"));
+spotsPanel.addEventListener("click",e=>{
+  const tile=e.target.closest(".spots-tile"); if(!tile)return;
+  addChild("workspace", tile.dataset.prop);
+  showToast(`＋ ${INSERT_META[tile.dataset.prop].label} ajouté(e) dans Workspace`);
+});
+
 /* ── POINTER EVENTS on 3D canvas ── */
 const dom=renderer.domElement;
 dom.style.touchAction="none";
@@ -724,9 +924,10 @@ function toNDC(e){
 }
 function pickObject(e){
   toNDC(e); ray.setFromCamera(ptr,camera);
-  const hits=ray.intersectObjects(blockMeshes,false);
+  const hits=ray.intersectObjects([...blockMeshes,...propMeshes],true);
   if(hits.length){
-    const id=hits[0].object.userData.nodeId;
+    const id=findNodeIdFromObject(hits[0].object);
+    if(!id) return;
     let cur=nodes[id]; while(cur.parent){expandedSet.add(cur.parent);cur=nodes[cur.parent];}
     selectNode(id);
   }
@@ -1065,6 +1266,22 @@ function startPlay(){
     if(srcNode.anim && srcNode.anim.type!=="none") animBlocks.push(cm);
   });
 
+  // clone Spots props (doors/windows/tables/chairs)
+  const doorProps=[];
+  propMeshes.forEach(g=>{
+    const srcNode=nodes[g.userData.nodeId]; if(!srcNode) return;
+    const clone=g.clone(true);
+    clone.position.copy(g.position); clone.rotation.copy(g.rotation);
+    playScene.add(clone);
+    if(srcNode.type==="door"||srcNode.type==="autodoor"||srcNode.type==="codedoor"){
+      doorProps.push({
+        group:clone, node:srcNode,
+        basePos:{x:srcNode.position.x,y:srcNode.position.y,z:srcNode.position.z},
+        state:"closed", progress:0, unlocked:false, wasNear:false
+      });
+    }
+  });
+
   // player — invisible anchor for true first-person (no body in view)
   const player=new THREE.Object3D();
   player.position.copy(playSpawnPos);
@@ -1087,22 +1304,64 @@ function startPlay(){
   document.addEventListener("keydown",onPlayKey); document.addEventListener("keyup",onPlayKeyUp);
 
   let yaw=0,pitch=0;
+  let usingPointerLock=false, dragLook=false, lastLookX=0, lastLookY=0;
+
+  function requestPlayLock(){
+    if(playCanvas.requestPointerLock){
+      const p=playCanvas.requestPointerLock();
+      if(p && p.catch) p.catch(()=>{ logOutput("Verrouillage souris indisponible — clique-glisse pour regarder à la place.","warn"); });
+    }
+  }
   playCanvas.addEventListener("click",requestPlayLock);
-  function requestPlayLock(){ if(playCanvas.requestPointerLock) playCanvas.requestPointerLock(); }
-  document.addEventListener("mousemove",onPlayMouse);
+
+  function onLockChange(){
+    usingPointerLock = document.pointerLockElement===playCanvas;
+  }
+  document.addEventListener("pointerlockchange",onLockChange);
+
   function onPlayMouse(e){
-    if(document.pointerLockElement!==playCanvas)return;
+    if(!usingPointerLock)return;
     yaw-=e.movementX*.002; pitch-=e.movementY*.002;
     pitch=Math.max(-.8,Math.min(.8,pitch));
     playCamera.rotation.order="YXZ";
     playCamera.rotation.y=yaw; playCamera.rotation.x=pitch;
   }
-  playScene.userData.cleanupMouse=()=>document.removeEventListener("mousemove",onPlayMouse);
-  playScene.userData.cleanupClick=()=>playCanvas.removeEventListener("click",requestPlayLock);
+  document.addEventListener("mousemove",onPlayMouse);
+
+  // drag-to-look fallback — always works, even if Pointer Lock is unavailable
+  // (e.g. when opening the file directly with file://) or hasn't engaged yet.
+  function onPlayPointerDown(e){
+    if(usingPointerLock)return;
+    dragLook=true; lastLookX=e.clientX; lastLookY=e.clientY;
+  }
+  function onPlayPointerMove(e){
+    if(usingPointerLock || !dragLook)return;
+    const dx=e.clientX-lastLookX, dy=e.clientY-lastLookY;
+    lastLookX=e.clientX; lastLookY=e.clientY;
+    yaw-=dx*.003; pitch-=dy*.003;
+    pitch=Math.max(-.8,Math.min(.8,pitch));
+    playCamera.rotation.order="YXZ";
+    playCamera.rotation.y=yaw; playCamera.rotation.x=pitch;
+  }
+  function onPlayPointerUp(){ dragLook=false; }
+  playCanvas.addEventListener("pointerdown",onPlayPointerDown);
+  document.addEventListener("pointermove",onPlayPointerMove);
+  document.addEventListener("pointerup",onPlayPointerUp);
+
+  playScene.userData.cleanupMouse=()=>{
+    document.removeEventListener("mousemove",onPlayMouse);
+    document.removeEventListener("pointerlockchange",onLockChange);
+    document.removeEventListener("pointermove",onPlayPointerMove);
+    document.removeEventListener("pointerup",onPlayPointerUp);
+  };
+  playScene.userData.cleanupClick=()=>{
+    playCanvas.removeEventListener("click",requestPlayLock);
+    playCanvas.removeEventListener("pointerdown",onPlayPointerDown);
+  };
 
   const PLAYER_R=.45, PLAYER_H=1.8, EYE_HEIGHT=PLAYER_H/2-.15;
   const GRAVITY=-28, JUMP_SPEED=10.5;
-  let playerVelY=0, grounded=false, pendingJump=false;
+  let playerVelY=0, grounded=false, pendingJump=false, pendingInteract=false;
 
   function tryMove(player, dx, dz){
     const nx=player.position.x+dx, nz=player.position.z+dz;
@@ -1218,6 +1477,37 @@ function startPlay(){
       else if(a.type==="pulse"){ const s=1+Math.sin(playTime*a.speed)*0.15; b.scale.set(s,s,s); }
     });
 
+    // Spots doors: auto-open by proximity, manual open with E, coded doors need a code
+    const INTERACT_RANGE=3.2;
+    doorProps.forEach(d=>{
+      const dist=Math.hypot(player.position.x-d.basePos.x, player.position.z-d.basePos.z);
+      const near = dist<INTERACT_RANGE;
+      if(d.node.type==="autodoor"){
+        const wantOpen = near;
+        if(wantOpen !== (d.state==="open")){
+          d.state = wantOpen?"open":"closed";
+          logOutput(`🚪 ${d.node.name} : ${d.state==="open"?"ouverte":"fermée"} (auto)`);
+        }
+      }
+      if(pendingInteract && near){
+        if(d.node.type==="codedoor" && !d.unlocked){
+          const entered = window.prompt(`Code pour "${d.node.name}" :`,"");
+          if(entered===d.node.doorCode){ d.unlocked=true; d.state="open"; logOutput(`🔓 ${d.node.name} déverrouillée`); }
+          else if(entered!==null){ logOutput(`🔒 Mauvais code pour "${d.node.name}"`,"error"); }
+        } else if(d.node.type==="door" || (d.node.type==="codedoor" && d.unlocked)){
+          d.state = d.state==="closed" ? "open" : "closed";
+          logOutput(`🚪 ${d.node.name} : ${d.state==="open"?"ouverte":"fermée"}`);
+        }
+      }
+      const target = d.state==="open" ? 1 : 0;
+      d.progress += (target-d.progress)*Math.min(1,dt*4);
+      const w=d.group.userData.width||2;
+      const rotY=d.group.rotation.y;
+      d.group.position.x = d.basePos.x + Math.cos(rotY)*w*d.progress;
+      d.group.position.z = d.basePos.z - Math.sin(rotY)*w*d.progress;
+    });
+    pendingInteract=false;
+
     // true first-person: camera sits at eye height, rotation already driven by mouse-look
     playCamera.position.set(player.position.x, player.position.y + EYE_HEIGHT, player.position.z);
 
@@ -1232,6 +1522,7 @@ function startPlay(){
     playRenderer.render(playScene,playCamera);
   }
   playScene.userData.requestJump=()=>{ pendingJump=true; };
+  playScene.userData.requestInteract=()=>{ pendingInteract=true; };
   playLoop();
 }
 
@@ -1256,6 +1547,9 @@ function onPlayKey(e){
   playKeys[e.key.toLowerCase()]=true;
   if(e.code==="Space" && !e.repeat && playScene && playScene.userData.requestJump){
     playScene.userData.requestJump();
+  }
+  if(e.key.toLowerCase()==="e" && !e.repeat && playScene && playScene.userData.requestInteract){
+    playScene.userData.requestInteract();
   }
   if(e.code==="Escape") stopPlay();
 }
@@ -1339,8 +1633,11 @@ const ROOT_META={
   scriptserver:     {abbr:"SS",color:"var(--ss)"},
   scriptgeneral:    {abbr:"SG",color:"var(--sg)"},
   replicatedstorage:{abbr:"RS",color:"var(--rs)"},
-  players:          {abbr:"PL",color:"var(--pl)"}
+  players:          {abbr:"PL",color:"var(--pl)"},
+  spots:            {abbr:"SP",color:"var(--sp)"}
 };
+
+const PROP_ABBR={door:"PRT",autodoor:"AUT",codedoor:"COD",window:"WIN",table:"TBL",chair:"CHR"};
 
 function chipHTML(node){
   if(node.type==="block")   return `<span class="swatch" style="background:${node.color}"></span>`;
@@ -1349,6 +1646,7 @@ function chipHTML(node){
   if(node.type==="model")   return `<span class="chip outline" style="border-color:var(--mdl);color:var(--mdl)">MDL</span>`;
   if(node.type==="script")  return `<span class="chip solid" style="background:var(--scr)">{}</span>`;
   if(node.type==="genvisit")return `<span class="chip solid" style="background:var(--gen);color:#08131a">GEN</span>`;
+  if(PROP_TYPES.includes(node.type)) return `<span class="chip solid" style="background:var(--sp);color:#2a1c08">${PROP_ABBR[node.type]}</span>`;
   return "";
 }
 
@@ -1356,12 +1654,12 @@ function esc(s){ return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;"
 
 function buildLi(id){
   const node=nodes[id];
-  const canExpand=["root","folder","model","block"].includes(node.type) && node.children.length>0;
+  const canExpand=["root","folder","model","block",...DOOR_TYPES].includes(node.type) && node.children.length>0;
   const exp=expandedSet.has(id);
   const ins=allowedInserts(node);
   const canDel=node.type!=="root";
   let html=`<li><div class="node-row ${selectedId===id?"selected":""}" data-id="${id}">`;
-  if(node.children.length && ["root","folder","model","block"].includes(node.type)){
+  if(node.children.length && ["root","folder","model","block",...DOOR_TYPES].includes(node.type)){
     html+=`<span class="toggle toggle-btn" data-id="${id}">${exp?"▾":"▸"}</span>`;
   } else {
     html+=`<span class="toggle empty">·</span>`;
@@ -1490,7 +1788,8 @@ const ROOT_DESC={
   scriptserver:"Scripts exécutés uniquement côté serveur.",
   scriptgeneral:"Code partagé entre systèmes.",
   replicatedstorage:"Accessible au serveur et aux clients.",
-  players:"Scripts liés au joueur."
+  players:"Scripts liés au joueur.",
+  spots:"Portes, fenêtres, tables et chaises prêtes à poser. Les portes s'ouvrent avec E en mode Test."
 };
 
 function renderProps(){
@@ -1532,6 +1831,18 @@ function renderProps(){
       html+=`<div class="cb-row"><input type="checkbox" id="pEnabled" ${node.enabled?"checked":""}><div><div class="cb-label">Activé</div><div class="cb-desc">Décoché : ignoré.</div></div></div>`;
       html+=`<div class="note-box">Éditez le code dans l'onglet en haut.</div>`;
     }
+    if(PROP_TYPES.includes(node.type)){
+      html+=`<div class="field"><label>Couleur</label><input type="color" id="pColor" value="${node.color}"></div>`;
+      html+=`<div class="field"><label>Position X / Y / Z</label><div class="row3"><input type="number" step="0.5" id="pPx" value="${node.position.x}"><input type="number" step="0.5" id="pPy" value="${node.position.y}"><input type="number" step="0.5" id="pPz" value="${node.position.z}"></div></div>`;
+      html+=`<div class="field"><label>Rotation (°)</label><input type="number" step="15" id="pRy" value="${node.rotation.y||0}"></div>`;
+      if(node.type==="door"||node.type==="autodoor"||node.type==="codedoor"){
+        html+=`<div class="field"><label>Largeur</label><input type="number" step="0.5" min="1" id="pWidth" value="${node.width}"></div>`;
+        html+=`<div class="note-box">${node.type==="autodoor"?"S'ouvre automatiquement quand le joueur s'approche.":node.type==="codedoor"?"Le joueur doit entrer le bon code avec E pour l'ouvrir.":"Appuie sur E à proximité pour ouvrir/fermer."}</div>`;
+      }
+      if(node.type==="codedoor"){
+        html+=`<div class="field"><label>Code</label><input type="text" id="pDoorCode" value="${esc(node.doorCode||"")}" maxlength="12"></div>`;
+      }
+    }
     html+=`<div class="prop-sep"></div>`;
     html+=`<button class="delete-btn" id="pDel">🗑 Supprimer</button>`;
   }
@@ -1539,7 +1850,16 @@ function renderProps(){
   bindProps(node);
 }
 
-function labelFor(t){ return {folder:"Dossier",model:"Modèle",block:"Bloc",script:"Script (serveur)",genvisit:"Genvisit (client)"}[t]||""; }
+function labelFor(t){
+  return {folder:"Dossier",model:"Modèle",block:"Bloc",script:"Script (serveur)",genvisit:"Genvisit (client)",
+    door:"Porte",autodoor:"Porte automatique",codedoor:"Porte à code",window:"Fenêtre",table:"Table",chair:"Chaise"}[t]||"";
+}
+
+function rebuildProp(node){
+  const parent=nodes[node.parent];
+  dispose3D(node.id);
+  spawnProp(node,parent);
+}
 
 function bindProps(node){
   const q=(id)=>document.getElementById(id);
@@ -1582,6 +1902,16 @@ function bindProps(node){
       const el=q(eid); if(!el)return;
       el.addEventListener("input",()=>{ node.rotation[ax]=parseFloat(el.value)||0; const m=obj3D[node.id]; if(m)m.rotation[ax]=THREE.MathUtils.degToRad(node.rotation[ax]); highlightSelected(); });
     });
+  }
+  if(PROP_TYPES.includes(node.type)){
+    const pc=q("pColor"); if(pc){ pc.addEventListener("input",()=>{ node.color=pc.value; const g=obj3D[node.id]; if(g) g.traverse(c=>{ if(c.material && c.material.color) c.material.color.set(node.color); }); renderTree(); }); }
+    [["pPx","x"],["pPy","y"],["pPz","z"]].forEach(([eid,ax])=>{
+      const el=q(eid); if(!el)return;
+      el.addEventListener("input",()=>{ node.position[ax]=parseFloat(el.value)||0; const g=obj3D[node.id]; if(g) g.position[ax]=node.position[ax]; });
+    });
+    const pry=q("pRy"); if(pry){ pry.addEventListener("input",()=>{ node.rotation.y=parseFloat(pry.value)||0; const g=obj3D[node.id]; if(g) g.rotation.y=THREE.MathUtils.degToRad(node.rotation.y); }); }
+    const pw=q("pWidth"); if(pw){ pw.addEventListener("input",()=>{ node.width=Math.max(1,parseFloat(pw.value)||1); rebuildProp(node); }); }
+    const pcode=q("pDoorCode"); if(pcode){ pcode.addEventListener("input",()=>{ node.doorCode=pcode.value; }); }
   }
   const pe=q("pEnabled"); if(pe){ pe.addEventListener("change",()=>{ node.enabled=pe.checked; if(activeTab===node.id)updateEditorStatus(); }); }
   const pd=q("pDel"); if(pd){ pd.addEventListener("click",()=>doDelete(node.id)); }
