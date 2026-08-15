@@ -100,7 +100,25 @@ ul.tree ul{padding-left:14px;}
 .add-sep{height:1px;background:var(--border);margin:4px 0;}
 
 /* ── CENTER ── */
-.center{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden;background:var(--panel2);}
+.center{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden;background:var(--panel2);position:relative;}
+
+/* ── OUTPUT PANEL ── */
+.output-panel{
+  position:absolute;left:0;right:0;bottom:0;height:190px;
+  background:rgba(8,14,20,.97);border-top:1px solid var(--border);
+  display:none;flex-direction:column;z-index:60;
+}
+.output-panel.active{display:flex;}
+.output-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:6px 12px;font-size:11px;color:var(--text-muted);border-bottom:1px solid var(--border-soft);flex:0 0 auto;
+}
+.output-header button{background:transparent;border:none;color:var(--text-muted);font-size:13px;padding:2px 6px;border-radius:4px;}
+.output-header button:hover{background:rgba(255,255,255,.08);color:var(--text);}
+.output-log{flex:1;overflow-y:auto;padding:8px 12px;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:#cdeaf1;line-height:1.7;}
+.output-line{white-space:pre-wrap;}
+.output-line .t{color:var(--text-muted);margin-right:8px;}
+.output-empty{color:var(--text-muted);}
 .tabbar{
   height:36px;flex:0 0 auto;display:flex;align-items:stretch;
   background:var(--panel2);border-bottom:1px solid var(--border);overflow-x:auto;
@@ -288,6 +306,10 @@ body.show-explorer .backdrop,body.show-properties .backdrop{display:block;}
     <button class="tb-btn" id="cam-reset" title="Réinitialiser la caméra"><span class="tb-icon">⊙</span>Reset</button>
   </div>
 
+  <div class="tb-group">
+    <button class="tb-btn" id="output-toggle" title="Afficher/masquer l'Output"><span class="tb-icon">🖥</span>Output</button>
+  </div>
+
   <div class="spacer"></div>
 
   <!-- TESTER + SAUVEGARDER -->
@@ -312,6 +334,17 @@ body.show-explorer .backdrop,body.show-properties .backdrop{display:block;}
   <!-- CENTRE -->
   <div class="center">
     <div class="tabbar" id="tabbar"></div>
+
+    <div class="output-panel" id="outputPanel">
+      <div class="output-header">
+        <span>🖥 Output</span>
+        <div>
+          <button id="output-clear" title="Effacer">Effacer</button>
+          <button id="output-close" title="Fermer">✕</button>
+        </div>
+      </div>
+      <div class="output-log" id="outputLog"><div class="output-empty">Rien pour l'instant — lance Tester pour voir les événements du jeu ici.</div></div>
+    </div>
 
     <div class="viewport-wrap" id="viewportWrap">
       <div id="canvas-container"></div>
@@ -437,7 +470,8 @@ function addChild(parentId,type){
   if(type==="folder") node.kind=parent.kind||"mixed";
   if(type==="model")  node.kind="world";
   if(type==="block"){
-    node.color=randomColor(); node.traverse=false;
+    node.color=randomColor(); node.traverse=false; node.free=false;
+    node.texture=""; node.anim={type:"none",speed:1};
     node.position=nextPos(); node.size={x:4,y:4,z:4}; node.rotation={x:0,y:0,z:0};
   }
   if(type==="script"||type==="genvisit"){
@@ -502,6 +536,17 @@ const worldGroup=new THREE.Group(); scene.add(worldGroup);
 const obj3D={"workspace":worldGroup};
 const blockMeshes=[];
 
+const textureLoader=new THREE.TextureLoader();
+function applyTexture(mesh,node){
+  if(node.texture){
+    textureLoader.load(node.texture, tex=>{
+      tex.colorSpace = THREE.SRGBColorSpace || tex.colorSpace;
+      mesh.material.map=tex; mesh.material.needsUpdate=true;
+    });
+  } else if(mesh.material.map){
+    mesh.material.map=null; mesh.material.needsUpdate=true;
+  }
+}
 function spawnBlock(node, parent){
   const geo=new THREE.BoxGeometry(node.size.x,node.size.y,node.size.z);
   const mat=new THREE.MeshStandardMaterial({
@@ -516,9 +561,13 @@ function spawnBlock(node, parent){
     THREE.MathUtils.degToRad(node.rotation.z||0)
   );
   mesh.userData.nodeId=node.id;
+  mesh.userData.baseY=node.position.y;
+  mesh.userData.baseScale={x:1,y:1,z:1};
   const p=obj3D[parent.id]||worldGroup;
   p.add(mesh); obj3D[node.id]=mesh; blockMeshes.push(mesh);
+  applyTexture(mesh,node);
 }
+
 
 function spawnGroup(node, parent){
   const g=new THREE.Group();
@@ -539,7 +588,7 @@ function dispose3D(id){
 (function(){
   const id=uid(); const parent=nodes.workspace;
   const node={id,name:"Baseplate",type:"block",parent:"workspace",children:[],
-    color:"#3f6f86",traverse:false,position:{x:0,y:-1,z:0},size:{x:60,y:2,z:60},rotation:{x:0,y:0,z:0}};
+    color:"#3f6f86",traverse:false,free:false,texture:"",anim:{type:"none",speed:1},position:{x:0,y:-1,z:0},size:{x:60,y:2,z:60},rotation:{x:0,y:0,z:0}};
   nodes[id]=node; parent.children.push(id); spawnBlock(node,parent);
 })();
 
@@ -548,7 +597,7 @@ function dispose3D(id){
   const parent=nodes.workspace;
   const blockId=uid();
   const blockNode={id:blockId,name:"SpawnPoint",type:"block",parent:"workspace",children:[],
-    color:"#59e6a6",traverse:true,position:{x:0,y:2,z:0},size:{x:3,y:1,z:3},rotation:{x:0,y:0,z:0}};
+    color:"#59e6a6",traverse:true,free:false,texture:"",anim:{type:"none",speed:1},position:{x:0,y:2,z:0},size:{x:3,y:1,z:3},rotation:{x:0,y:0,z:0}};
   nodes[blockId]=blockNode; parent.children.push(blockId); spawnBlock(blockNode,parent);
 
   const scriptId=uid();
@@ -610,6 +659,23 @@ applyCam();
 document.getElementById("cam-reset").addEventListener("click",()=>{
   cam.r=46; cam.theta=.8; cam.phi=1.05; cam.target.set(0,3,0); applyCam();
 });
+
+/* ── OUTPUT PANEL (like Roblox Studio's Output window) ── */
+const outputPanel=document.getElementById("outputPanel");
+const outputLog=document.getElementById("outputLog");
+function logOutput(msg,kind){
+  if(outputLog.querySelector(".output-empty")) outputLog.innerHTML="";
+  const t=new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+  const color = kind==="error" ? "#ff8a7a" : kind==="warn" ? "#ffc24b" : "#cdeaf1";
+  const line=document.createElement("div");
+  line.className="output-line";
+  line.innerHTML=`<span class="t">[${t}]</span><span style="color:${color}">${msg.replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]))}</span>`;
+  outputLog.appendChild(line);
+  outputLog.scrollTop=outputLog.scrollHeight;
+}
+document.getElementById("output-toggle").addEventListener("click",()=>outputPanel.classList.toggle("active"));
+document.getElementById("output-close").addEventListener("click",()=>outputPanel.classList.remove("active"));
+document.getElementById("output-clear").addEventListener("click",()=>{ outputLog.innerHTML=`<div class="output-empty">Rien pour l'instant.</div>`; });
 
 /* ── POINTER EVENTS on 3D canvas ── */
 const dom=renderer.domElement;
@@ -820,15 +886,22 @@ function animate(){
   pt+=.04;
   if(selEdge) selEdge.material.color.setHSL(.5,.75,.55+Math.sin(pt)*.08);
 
-  // fly-camera navigation in edit mode: Z Q S D move, E up, A down
+  // fly-camera navigation in edit mode: Z/S follow the exact look direction
+  // (like Roblox Studio — looking down + Z makes you descend), Q/D strafe
+  // horizontally, E/A move straight up/down regardless of where you look.
   if(!isPlaying && activeTab==="viewport"){
     const edt=Math.min(editClock.getDelta(),.08);
     const speed=20;
-    const fwd=new THREE.Vector3(-Math.sin(cam.theta),0,-Math.cos(cam.theta));
+    // full 3D look direction (from camera toward the orbit target), pitch included
+    const look=new THREE.Vector3(
+      -Math.sin(cam.phi)*Math.sin(cam.theta),
+      -Math.cos(cam.phi),
+      -Math.sin(cam.phi)*Math.cos(cam.theta)
+    );
     const right=new THREE.Vector3(Math.cos(cam.theta),0,-Math.sin(cam.theta));
     let mv=new THREE.Vector3();
-    if(editKeys["z"]) mv.add(fwd);
-    if(editKeys["s"]) mv.sub(fwd);
+    if(editKeys["z"]) mv.add(look);
+    if(editKeys["s"]) mv.sub(look);
     if(editKeys["q"]) mv.sub(right);
     if(editKeys["d"]) mv.add(right);
     let moved=false;
@@ -934,6 +1007,7 @@ function startPlay(){
   isPlaying=true;
   playBtn.classList.add("running"); playBtn.innerHTML='<span class="tb-icon">■</span>Stop';
   playOverlay.classList.add("active");
+  logOutput("▶ Test lancé");
 
   // ── read scripts (best-effort Codavaso reader) ──
   const playersCode = collectEnabledCode(["players"]);
@@ -945,6 +1019,9 @@ function startPlay(){
   playTouchEffects = parseTouchEffects(allCode);
   playTouchState = new Map();
   playSpawnPos = findSpawnPosition();
+  logOutput(`player.apparation(bloc.spawnpoint) → apparition à (${playSpawnPos.x.toFixed(1)}, ${playSpawnPos.y.toFixed(1)}, ${playSpawnPos.z.toFixed(1)})`);
+  if(playStats.life!==null) logOutput(`player.life = ${playStats.life}`);
+  logOutput(`player.speed = ${playStats.speed} · touches : ${playControls.forward.toUpperCase()}/${playControls.left.toUpperCase()}/${playControls.back.toUpperCase()}/${playControls.right.toUpperCase()}`);
 
   playStatus.textContent = "Simulation en cours…";
 
@@ -958,6 +1035,8 @@ function startPlay(){
 
   // clone all blocks, tagging with name / model membership for touch detection
   const solidBlocks=[];
+  const freeBlocks=[];
+  const animBlocks=[];
   blockMeshes.forEach(m=>{
     const srcNode = nodes[m.userData.nodeId];
     if(!srcNode) return;
@@ -965,17 +1044,25 @@ function startPlay(){
     const geo=m.geometry.clone();
     const mat=new THREE.MeshStandardMaterial({
       color:m.material.color.clone(), roughness:.55, metalness:.08,
-      transparent:m.material.transparent, opacity:m.material.opacity
+      transparent:m.material.transparent, opacity:m.material.opacity,
+      map:m.material.map||null
     });
     const cm=new THREE.Mesh(geo,mat);
     cm.position.copy(m.position); cm.rotation.copy(m.rotation);
     cm.userData.traverse = !!srcNode.traverse;
+    cm.userData.free = !!srcNode.free;
     cm.userData.blockName = (srcNode.name||"").toLowerCase();
     cm.userData.modelName = (parentNode && parentNode.type==="model") ? parentNode.name.toLowerCase() : null;
     cm.userData.size = {...srcNode.size};
     cm.userData.pos = {...srcNode.position};
+    cm.userData.basePos = {...srcNode.position};
+    cm.userData.baseSize = {...srcNode.size};
+    cm.userData.vel = {x:0,y:0,z:0};
+    cm.userData.anim = srcNode.anim ? {...srcNode.anim} : {type:"none",speed:1};
     playScene.add(cm);
-    if(!srcNode.traverse) solidBlocks.push(cm);
+    if(!srcNode.traverse && !srcNode.free) solidBlocks.push(cm);
+    if(srcNode.free) freeBlocks.push(cm);
+    if(srcNode.anim && srcNode.anim.type!=="none") animBlocks.push(cm);
   });
 
   // player — invisible anchor for true first-person (no body in view)
@@ -1057,9 +1144,11 @@ function startPlay(){
           if(!nameMatch) return;
           if(fx.key==="life"){
             playStats.life = fx.op==="add" ? (playStats.life||0)+fx.value : fx.value;
+            logOutput(`if.player.touch(${fx.kind}.${fx.name}) → player.life = ${playStats.life}`, playStats.life<=0?"error":"info");
           } else if(fx.key==="speed"){
             playStats.speed = fx.op==="add" ? (playStats.speed||0)+fx.value : fx.value;
             playStats.speed = Math.max(1,playStats.speed);
+            logOutput(`if.player.touch(${fx.kind}.${fx.name}) → player.speed = ${playStats.speed}`);
           }
         });
       }
@@ -1071,13 +1160,16 @@ function startPlay(){
       playStats.life = playStats.maxLife;
       playStats.speed = playControls.walkSpeed || 6;
       playTouchState.forEach((v,k)=>playTouchState.set(k,false));
+      logOutput("function.reanimation(spawnpoint()) → réapparition","warn");
     }
   }
 
   const clock=new THREE.Clock();
+  let playTime=0;
   function playLoop(){
     playAnimId=requestAnimationFrame(playLoop);
     const dt=Math.min(clock.getDelta(),.05);
+    playTime+=dt;
     const player=playScene.userData.player;
     const speed=playStats.speed||6;
 
@@ -1091,7 +1183,7 @@ function startPlay(){
     if(mv.lengthSq()>0){ mv.normalize().multiplyScalar(speed*dt); tryMove(player,mv.x,mv.z); }
 
     // gravity + jump (Space)
-    if(pendingJump && grounded){ playerVelY=JUMP_SPEED; grounded=false; }
+    if(pendingJump && grounded){ playerVelY=JUMP_SPEED; grounded=false; logOutput("player.jump()"); }
     pendingJump=false;
     playerVelY += GRAVITY*dt;
     let newY = player.position.y + playerVelY*dt;
@@ -1101,6 +1193,30 @@ function startPlay(){
     player.position.y = newY;
 
     checkTouch(player);
+
+    // "libre" (free) blocks: pushed away when the player walks into them
+    freeBlocks.forEach(b=>{
+      const dx=b.position.x-player.position.x, dz=b.position.z-player.position.z;
+      const dist=Math.hypot(dx,dz);
+      const minDist=(b.userData.size.x+b.userData.size.z)/4+PLAYER_R+0.15;
+      if(dist<minDist && dist>0.001){
+        const push=(minDist-dist)*6;
+        b.userData.vel.x += (dx/dist)*push*dt;
+        b.userData.vel.z += (dz/dist)*push*dt;
+      }
+      b.position.x += b.userData.vel.x*dt;
+      b.position.z += b.userData.vel.z*dt;
+      b.userData.vel.x *= 0.9; b.userData.vel.z *= 0.9;
+      b.userData.pos.x=b.position.x; b.userData.pos.z=b.position.z;
+    });
+
+    // block animations (rotation / bob / pulse)
+    animBlocks.forEach(b=>{
+      const a=b.userData.anim;
+      if(a.type==="rotate"){ b.rotation.y += a.speed*dt; }
+      else if(a.type==="bob"){ b.position.y = b.userData.basePos.y + Math.sin(playTime*a.speed)*1.2; b.userData.pos.y=b.position.y; }
+      else if(a.type==="pulse"){ const s=1+Math.sin(playTime*a.speed)*0.15; b.scale.set(s,s,s); }
+    });
 
     // true first-person: camera sits at eye height, rotation already driven by mouse-look
     playCamera.position.set(player.position.x, player.position.y + EYE_HEIGHT, player.position.z);
@@ -1123,6 +1239,7 @@ function stopPlay(){
   isPlaying=false;
   playBtn.classList.remove("running"); playBtn.innerHTML='<span class="tb-icon">▶</span>Tester';
   playOverlay.classList.remove("active");
+  logOutput("■ Test arrêté");
   if(playAnimId){ cancelAnimationFrame(playAnimId); playAnimId=null; }
   document.removeEventListener("keydown",onPlayKey);
   document.removeEventListener("keyup",onPlayKeyUp);
@@ -1392,7 +1509,19 @@ function renderProps(){
     html+=`<div class="field"><label>Nom</label><input type="text" id="pName" value="${esc(node.name)}"></div>`;
     if(node.type==="block"){
       html+=`<div class="field"><label>Couleur</label><input type="color" id="pColor" value="${node.color}"></div>`;
+      html+=`<div class="field"><label>Texture (image)</label>
+        <input type="file" id="pTextureFile" accept="image/*" style="font-size:11.5px;">
+        ${node.texture?`<button class="delete-btn" id="pTextureClear" style="margin-top:6px;">Retirer la texture</button>`:""}
+      </div>`;
       html+=`<div class="cb-row"><input type="checkbox" id="pTraverse" ${node.traverse?"checked":""}><div><div class="cb-label">Traverse</div><div class="cb-desc">Le joueur peut traverser ce bloc.</div></div></div>`;
+      html+=`<div class="cb-row"><input type="checkbox" id="pFree" ${node.free?"checked":""}><div><div class="cb-label">Libre</div><div class="cb-desc">L'objet bouge quand le joueur le touche.</div></div></div>`;
+      html+=`<div class="field"><label>Animation</label><select id="pAnimType">
+        <option value="none" ${node.anim.type==="none"?"selected":""}>Aucune</option>
+        <option value="rotate" ${node.anim.type==="rotate"?"selected":""}>Rotation continue</option>
+        <option value="bob" ${node.anim.type==="bob"?"selected":""}>Va-et-vient (haut/bas)</option>
+        <option value="pulse" ${node.anim.type==="pulse"?"selected":""}>Pulsation (taille)</option>
+      </select></div>`;
+      html+=`<div class="field"><label>Vitesse d'animation</label><input type="number" step="0.1" min="0.1" id="pAnimSpeed" value="${node.anim.speed}"></div>`;
       html+=`<div class="field"><label>Position X / Y / Z</label><div class="row3"><input type="number" step="0.5" id="pPx" value="${node.position.x}"><input type="number" step="0.5" id="pPy" value="${node.position.y}"><input type="number" step="0.5" id="pPz" value="${node.position.z}"></div></div>`;
       html+=`<div class="field"><label>Taille X / Y / Z</label><div class="row3"><input type="number" step="0.5" min="0.2" id="pSx" value="${node.size.x}"><input type="number" step="0.5" min="0.2" id="pSy" value="${node.size.y}"><input type="number" step="0.5" min="0.2" id="pSz" value="${node.size.z}"></div></div>`;
       html+=`<div class="field"><label>Rotation X / Y / Z (°)</label><div class="row3"><input type="number" step="5" id="pRx" value="${node.rotation.x||0}"><input type="number" step="5" id="pRy" value="${node.rotation.y||0}"><input type="number" step="5" id="pRz" value="${node.rotation.z||0}"></div></div>`;
@@ -1418,10 +1547,32 @@ function bindProps(node){
 
   if(node.type==="block"){
     const pc=q("pColor"); if(pc){ pc.addEventListener("input",()=>{ node.color=pc.value; const m=obj3D[node.id]; if(m)m.material.color.set(node.color); renderTree(); }); }
+    const ptf=q("pTextureFile"); if(ptf){
+      ptf.addEventListener("change",()=>{
+        const file=ptf.files[0]; if(!file) return;
+        const reader=new FileReader();
+        reader.onload=()=>{
+          node.texture=reader.result;
+          const m=obj3D[node.id]; if(m) applyTexture(m,node);
+          renderProps();
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+    const ptc=q("pTextureClear"); if(ptc){
+      ptc.addEventListener("click",()=>{
+        node.texture="";
+        const m=obj3D[node.id]; if(m) applyTexture(m,node);
+        renderProps();
+      });
+    }
     const pt=q("pTraverse"); if(pt){ pt.addEventListener("change",()=>{ node.traverse=pt.checked; const m=obj3D[node.id]; if(m){m.material.transparent=node.traverse;m.material.opacity=node.traverse?.35:1;} }); }
+    const pf=q("pFree"); if(pf){ pf.addEventListener("change",()=>{ node.free=pf.checked; }); }
+    const pat=q("pAnimType"); if(pat){ pat.addEventListener("change",()=>{ node.anim.type=pat.value; }); }
+    const pas=q("pAnimSpeed"); if(pas){ pas.addEventListener("input",()=>{ node.anim.speed=Math.max(.1,parseFloat(pas.value)||1); }); }
     [["pPx","x"],["pPy","y"],["pPz","z"]].forEach(([eid,ax])=>{
       const el=q(eid); if(!el)return;
-      el.addEventListener("input",()=>{ node.position[ax]=parseFloat(el.value)||0; const m=obj3D[node.id]; if(m)m.position[ax]=node.position[ax]; if(gizmoGroup){const wp=new THREE.Vector3();m.getWorldPosition(wp);gizmoGroup.position.copy(wp);} highlightSelected(); });
+      el.addEventListener("input",()=>{ node.position[ax]=parseFloat(el.value)||0; const m=obj3D[node.id]; if(m){m.position[ax]=node.position[ax]; m.userData.baseY=node.position.y;} if(gizmoGroup){const wp=new THREE.Vector3();m.getWorldPosition(wp);gizmoGroup.position.copy(wp);} highlightSelected(); });
     });
     [["pSx","x"],["pSy","y"],["pSz","z"]].forEach(([eid,ax])=>{
       const el=q(eid); if(!el)return;
