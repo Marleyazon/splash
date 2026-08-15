@@ -1,0 +1,1447 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SPLASH STUDIO</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+:root{
+  --bg:#0a1119;--panel:#101a24;--panel2:#0c1620;--border:#1e2c39;--border-soft:#16212c;
+  --text:#e7eff5;--text-muted:#7c90a0;--accent:#33d6e0;--accent-dim:#1c7a80;--warn:#ff6b57;
+  --wk:#33d6e0;--ss:#ff9e5e;--sg:#b98cff;--rs:#59e6a6;--pl:#ff6fa5;
+  --scr:#ffc24b;--gen:#7fa8ff;--mdl:#4fd1c5;
+  --toolbar-h:48px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;overflow:hidden;}
+body{background:var(--bg);color:var(--text);font-family:'Space Grotesk',system-ui,sans-serif;}
+button{font-family:inherit;cursor:pointer;}
+input{font-family:inherit;}
+#app{display:flex;flex-direction:column;height:100vh;}
+
+/* ── TOPBAR ── */
+.topbar{
+  height:54px;flex:0 0 auto;display:flex;align-items:center;gap:0;
+  background:linear-gradient(180deg,#101c27,#0c1620);
+  border-bottom:1px solid var(--border);z-index:30;padding:0 12px;
+}
+.logo{display:flex;align-items:center;gap:8px;padding-right:14px;border-right:1px solid var(--border);}
+.logo-text{font-weight:700;font-size:15px;letter-spacing:.5px;}
+.logo-text .ac{color:var(--accent);}
+
+/* toolbar groups */
+.tb-group{display:flex;align-items:center;gap:3px;padding:0 10px;border-right:1px solid var(--border);}
+.tb-group:last-child{border-right:none;}
+.tb-label{font-size:9.5px;text-transform:uppercase;letter-spacing:.8px;color:var(--text-muted);padding:0 4px;}
+
+.tb-btn{
+  display:flex;align-items:center;justify-content:center;gap:5px;
+  height:34px;padding:0 10px;border-radius:7px;border:1px solid transparent;
+  background:transparent;color:var(--text-muted);font-size:12px;white-space:nowrap;
+  transition:background .12s,color .12s,border-color .12s;
+}
+.tb-btn:hover{background:rgba(255,255,255,.06);color:var(--text);}
+.tb-btn.active{background:rgba(51,214,224,.15);color:var(--accent);border-color:rgba(51,214,224,.35);}
+.tb-btn.play-btn{background:rgba(89,230,166,.12);color:#59e6a6;border-color:rgba(89,230,166,.3);}
+.tb-btn.play-btn:hover{background:rgba(89,230,166,.22);}
+.tb-btn.play-btn.running{background:#59e6a6;color:#071a10;border-color:#59e6a6;}
+.tb-btn.save-btn{background:rgba(51,214,224,.1);color:var(--accent);border-color:rgba(51,214,224,.25);}
+.tb-btn.save-btn:hover{background:rgba(51,214,224,.2);}
+.tb-icon{font-size:15px;}
+.spacer{flex:1;}
+
+/* ── MAIN ── */
+/* ---------- Main layout ---------- */
+.main{flex:1;display:flex;min-height:0;min-width:0;width:100%;overflow:hidden;}
+
+/* ── EXPLORER ── */
+.explorer{
+  width:258px;flex:0 0 auto;background:var(--panel);
+  border-right:1px solid var(--border);overflow-y:auto;padding:8px 0 30px;
+}
+.explorer-title{font-size:10px;text-transform:uppercase;letter-spacing:1.2px;color:var(--text-muted);padding:4px 14px 8px;}
+ul.tree,ul.tree ul{list-style:none;}
+ul.tree ul{padding-left:14px;}
+.node-row{
+  display:flex;align-items:center;gap:5px;padding:5px 6px 5px 4px;
+  border-radius:6px;cursor:pointer;user-select:none;
+}
+.node-row:hover{background:rgba(255,255,255,.04);}
+.node-row.selected{background:rgba(51,214,224,.13);outline:1px solid rgba(51,214,224,.32);}
+.toggle{width:14px;height:14px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:10px;}
+.toggle.empty{visibility:hidden;}
+.chip{flex:0 0 auto;font-size:8.5px;font-weight:700;letter-spacing:.3px;padding:2px 5px;border-radius:4px;line-height:1.3;}
+.chip.solid{color:#08131a;}
+.chip.outline{background:transparent;border:1.4px solid;}
+.swatch{flex:0 0 auto;width:13px;height:13px;border-radius:3px;border:1px solid rgba(255,255,255,.25);}
+.node-label{flex:1;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.node-label input{width:100%;background:var(--panel2);border:1px solid var(--accent);color:var(--text);font-size:12.5px;border-radius:4px;padding:1px 4px;}
+.node-actions{display:flex;gap:2px;opacity:0;flex:0 0 auto;}
+.node-row:hover .node-actions,.node-row.selected .node-actions{opacity:1;}
+.icon-btn{
+  width:20px;height:20px;border-radius:5px;border:none;background:transparent;
+  color:var(--text-muted);display:flex;align-items:center;justify-content:center;font-size:12px;
+}
+.icon-btn:hover{background:rgba(255,255,255,.09);color:var(--text);}
+.icon-btn.danger:hover{background:rgba(255,107,87,.18);color:var(--warn);}
+
+/* ── ADD MENU ── */
+.add-menu{
+  position:fixed;z-index:200;background:var(--panel2);border:1px solid var(--border);
+  border-radius:8px;padding:5px;box-shadow:0 12px 36px rgba(0,0,0,.6);min-width:175px;
+}
+.add-menu button{
+  display:flex;align-items:center;gap:9px;width:100%;background:transparent;border:none;
+  color:var(--text);text-align:left;padding:7px 9px;border-radius:6px;font-size:12.5px;
+}
+.add-menu button:hover{background:rgba(51,214,224,.14);}
+.add-sep{height:1px;background:var(--border);margin:4px 0;}
+
+/* ── CENTER ── */
+.center{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden;background:var(--panel2);}
+.tabbar{
+  height:36px;flex:0 0 auto;display:flex;align-items:stretch;
+  background:var(--panel2);border-bottom:1px solid var(--border);overflow-x:auto;
+}
+.tab{
+  display:flex;align-items:center;gap:7px;padding:0 11px;font-size:12px;color:var(--text-muted);
+  border-right:1px solid var(--border-soft);cursor:pointer;white-space:nowrap;
+}
+.tab.active{color:var(--text);background:var(--bg);border-bottom:2px solid var(--accent);}
+.tab-x{width:15px;height:15px;border-radius:4px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:11px;}
+.tab-x:hover{background:rgba(255,255,255,.12);color:var(--text);}
+
+.viewport-wrap{flex:1;position:relative;min-height:0;overflow:hidden;}
+#canvas-container{position:absolute;inset:0;overflow:hidden;}
+
+/* gizmo overlay */
+.gizmo-hint{
+  position:absolute;right:14px;top:12px;font-size:10.5px;color:var(--text-muted);
+  background:rgba(10,17,25,.7);padding:6px 10px;border-radius:7px;
+  border:1px solid var(--border-soft);pointer-events:none;line-height:1.7;
+}
+.viewport-hint{
+  position:absolute;left:14px;bottom:12px;font-size:10.5px;color:var(--text-muted);
+  background:rgba(10,17,25,.7);padding:6px 10px;border-radius:7px;
+  border:1px solid var(--border-soft);pointer-events:none;
+}
+
+/* PLAY OVERLAY — full-screen, first-person, no frame */
+.play-overlay{
+  position:absolute;inset:0;z-index:50;background:#000;
+  display:none;
+}
+.play-overlay.active{display:block;}
+.play-screen{
+  position:absolute;inset:0;background:#000;
+}
+#play-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;}
+.play-hud{
+  position:absolute;top:16px;left:50%;transform:translateX(-50%);
+  background:rgba(7,13,19,.55);border-radius:8px;padding:6px 14px;
+  font-size:12px;color:#59e6a6;display:flex;gap:12px;align-items:center;
+  pointer-events:none;letter-spacing:.3px;
+}
+.play-controls{position:absolute;top:14px;right:16px;}
+.play-esc-btn{
+  padding:8px 18px;border-radius:8px;border:1px solid rgba(255,107,87,.5);
+  background:rgba(7,13,19,.55);color:#ffb2a6;font-size:12.5px;font-weight:600;
+}
+.play-esc-btn:hover{background:rgba(255,107,87,.35);}
+.play-info{
+  position:absolute;bottom:16px;left:50%;transform:translateX(-50%);
+  font-size:11.5px;color:rgba(231,239,245,.75);text-align:center;
+  background:rgba(7,13,19,.5);padding:6px 12px;border-radius:7px;pointer-events:none;
+}
+.play-crosshair{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.75);
+  box-shadow:0 0 0 1.5px rgba(0,0,0,.4);pointer-events:none;
+}
+
+/* EDITOR */
+.editor-wrap{flex:1;display:none;flex-direction:column;min-height:0;}
+.editor-status{
+  flex:0 0 auto;display:flex;align-items:center;gap:9px;padding:7px 14px;
+  font-size:11.5px;color:var(--text-muted);border-bottom:1px solid var(--border-soft);
+  background:var(--panel2);
+}
+.lang-badge{background:var(--accent-dim);color:#eafdff;font-weight:700;padding:2px 7px;border-radius:5px;font-size:10px;letter-spacing:.4px;}
+textarea.codavaso-editor{
+  flex:1;resize:none;background:#0b1520;color:#cdeaf1;
+  font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.7;
+  border:none;outline:none;padding:18px 20px;
+}
+
+/* ── PROPERTIES ── */
+.properties{
+  width:282px;flex:0 0 auto;background:var(--panel);
+  border-left:1px solid var(--border);overflow-y:auto;padding:14px;
+}
+.prop-empty{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;margin-top:60px;color:var(--text-muted);font-size:12px;}
+.prop-title{font-size:13.5px;font-weight:700;margin-bottom:2px;display:flex;align-items:center;gap:7px;}
+.prop-sub{font-size:10.5px;color:var(--text-muted);margin-bottom:14px;}
+.field{margin-bottom:13px;}
+.field label{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:var(--text-muted);margin-bottom:5px;}
+.field input[type=text],.field input[type=number]{
+  width:100%;background:var(--panel2);border:1px solid var(--border);
+  color:var(--text);border-radius:6px;padding:7px 8px;font-size:12.5px;
+}
+.field input[type=text]:focus,.field input[type=number]:focus{border-color:var(--accent);outline:none;}
+.field input[type=color]{width:100%;height:32px;border:1px solid var(--border);border-radius:6px;background:var(--panel2);padding:2px;cursor:pointer;}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;}
+.cb-row{display:flex;align-items:flex-start;gap:8px;margin-bottom:12px;}
+.cb-row input{width:16px;height:16px;margin-top:2px;accent-color:var(--accent);flex:0 0 auto;}
+.cb-label{font-size:12px;}
+.cb-desc{font-size:10.5px;color:var(--text-muted);margin-top:1px;}
+.note-box{background:var(--panel2);border:1px solid var(--border-soft);border-radius:7px;padding:9px 10px;font-size:11px;color:var(--text-muted);line-height:1.5;margin-bottom:12px;}
+.chip-row{display:flex;gap:6px;margin-bottom:12px;}
+.prop-sep{height:1px;background:var(--border);margin:12px 0;}
+.delete-btn{
+  width:100%;margin-top:6px;padding:8px;border-radius:7px;
+  background:rgba(255,107,87,.1);border:1px solid rgba(255,107,87,.35);
+  color:#ffb2a6;font-size:12px;font-weight:600;
+}
+.delete-btn:hover{filter:brightness(1.15);}
+
+/* ── TOAST ── */
+.toast{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);
+  background:#0e2a1c;border:1px solid #59e6a6;color:#b7f5d6;
+  border-radius:9px;padding:10px 20px;font-size:13px;font-weight:600;
+  z-index:500;transition:transform .25s ease,opacity .25s ease;opacity:0;
+}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
+
+::-webkit-scrollbar{width:8px;height:8px;}
+::-webkit-scrollbar-thumb{background:#1c2a36;border-radius:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+
+/* ── PANEL TOGGLES (mobile/narrow) ── */
+.panel-toggle{
+  display:none;align-items:center;justify-content:center;
+  width:34px;height:34px;border-radius:7px;border:1px solid var(--border);
+  background:var(--panel2);color:var(--text);font-size:15px;flex:0 0 auto;
+}
+.panel-toggle:hover{background:rgba(255,255,255,.08);}
+.backdrop{
+  position:fixed;inset:0;top:54px;background:rgba(0,0,0,.5);z-index:35;display:none;
+}
+body.show-explorer .backdrop,body.show-properties .backdrop{display:block;}
+
+@media (max-width:980px){
+  .topbar{overflow-x:auto;flex-wrap:nowrap;}
+  .topbar-title-group{flex:0 0 auto;}
+  .tb-label{display:none;}
+  .tb-btn{padding:0 8px;}
+  .tb-btn span:not(.tb-icon){display:none;}
+  .panel-toggle{display:flex;}
+
+  .explorer,.properties{
+    position:fixed;top:54px;bottom:0;z-index:40;width:82vw;max-width:300px;
+    transition:transform .22s ease;box-shadow:0 0 40px rgba(0,0,0,.6);
+  }
+  .explorer{left:0;transform:translateX(-105%);}
+  .properties{right:0;transform:translateX(105%);}
+  body.show-explorer .explorer{transform:translateX(0);}
+  body.show-properties .properties{transform:translateX(0);}
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- ═══ TOPBAR ═══ -->
+<div class="topbar">
+  <div class="logo">
+    <svg width="24" height="24" viewBox="0 0 26 26">
+      <defs><linearGradient id="dg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#7EEFF5"/><stop offset="100%" stop-color="#1FA9B8"/></linearGradient></defs>
+      <path d="M13 1.5C13 1.5 4 12 4 17.5C4 22.5 8 25 13 25C18 25 22 22.5 22 17.5C22 12 13 1.5 13 1.5Z" fill="url(#dg)"/>
+      <ellipse cx="16.5" cy="14" rx="2" ry="3" fill="rgba(255,255,255,.35)"/>
+    </svg>
+    <div class="logo-text">SPLASH<span class="ac">STUDIO</span></div>
+  </div>
+
+  <button class="panel-toggle" id="toggleExplorerBtn" title="Explorateur">☰</button>
+
+  <!-- OUTILS TRANSFORMATION -->
+  <div class="tb-group">
+    <span class="tb-label">Outil</span>
+    <button class="tb-btn active" id="tool-select" title="Sélectionner (Q)"><span class="tb-icon">↖</span>Sélect.</button>
+    <button class="tb-btn" id="tool-move"   title="Déplacer (W)"><span class="tb-icon">✥</span>Déplacer</button>
+    <button class="tb-btn" id="tool-scale"  title="Agrandir (E)"><span class="tb-icon">⤡</span>Agrandir</button>
+    <button class="tb-btn" id="tool-rotate" title="Tourner (R)"><span class="tb-icon">↻</span>Tourner</button>
+  </div>
+
+  <!-- AJOUTER -->
+  <div class="tb-group">
+    <span class="tb-label">Ajouter</span>
+    <button class="tb-btn" id="tb-add-block" title="Ajouter un bloc"><span class="tb-icon">▣</span>Bloc</button>
+    <button class="tb-btn" id="tb-add-model" title="Ajouter un modèle"><span class="tb-icon">⬚</span>Modèle</button>
+  </div>
+
+  <!-- NAVIGATION CAMÉRA -->
+  <div class="tb-group">
+    <span class="tb-label">Caméra</span>
+    <button class="tb-btn" id="cam-reset" title="Réinitialiser la caméra"><span class="tb-icon">⊙</span>Reset</button>
+  </div>
+
+  <div class="spacer"></div>
+
+  <!-- TESTER + SAUVEGARDER -->
+  <div class="tb-group">
+    <button class="tb-btn play-btn" id="play-btn"><span class="tb-icon">▶</span>Tester</button>
+    <button class="tb-btn save-btn" id="save-btn"><span class="tb-icon">💾</span>Sauvegarder</button>
+    <a class="tb-btn" href="splash.html" target="_blank" title="Ouvrir SPLASH (publier / découvrir des jeux)"><span class="tb-icon">🌊</span>SPLASH</a>
+  </div>
+  <button class="panel-toggle" id="togglePropsBtn" title="Propriétés">⚙</button>
+</div>
+<div class="backdrop" id="backdrop"></div>
+
+<!-- ═══ MAIN ═══ -->
+<div class="main">
+
+  <!-- EXPLORATEUR -->
+  <div class="explorer" id="explorer">
+    <div class="explorer-title">Explorateur</div>
+    <ul class="tree" id="tree"></ul>
+  </div>
+
+  <!-- CENTRE -->
+  <div class="center">
+    <div class="tabbar" id="tabbar"></div>
+
+    <div class="viewport-wrap" id="viewportWrap">
+      <div id="canvas-container"></div>
+
+      <!-- PLAY OVERLAY — full-screen first-person -->
+      <div class="play-overlay" id="playOverlay">
+        <div class="play-screen">
+          <canvas id="play-canvas"></canvas>
+        </div>
+        <div class="play-crosshair"></div>
+        <div class="play-hud">
+          <span>🎮</span>
+          <span id="play-status">Simulation en cours…</span>
+        </div>
+        <div class="play-controls">
+          <button class="play-esc-btn" id="stop-btn">■ Arrêter (Échap)</button>
+        </div>
+        <div class="play-info">Z Q S D = se déplacer · Espace = sauter · Clic = regarder avec la souris · Au-dessus d'un bloc, tu peux le traverser</div>
+      </div>
+
+      <div class="gizmo-hint" id="gizmoHint">
+        <div><b style="color:var(--accent)">Z Q S D</b> Déplacer caméra</div>
+        <div><b style="color:var(--accent)">E</b> Monter &nbsp;<b style="color:var(--accent)">A</b> Descendre</div>
+        <div><b style="color:var(--accent)">Suppr</b> Effacer la sélection</div>
+      </div>
+      <div class="viewport-hint">Glisser : orbiter · Molette : zoomer · Z Q S D E A : déplacer la caméra · Clic : sélectionner</div>
+    </div>
+
+    <div class="editor-wrap" id="editorWrap">
+      <div class="editor-status" id="editorStatus"></div>
+      <textarea class="codavaso-editor" id="editorTextarea" spellcheck="false"></textarea>
+    </div>
+  </div>
+
+  <!-- PROPRIÉTÉS -->
+  <div class="properties" id="properties"></div>
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+"use strict";
+
+/* ═══════════════════════════════════════
+   DATA MODEL
+═══════════════════════════════════════ */
+let idCounter = 1;
+function uid(){ return "n"+(idCounter++); }
+
+const nodes = {};
+const ROOT_ORDER = ["workspace","scriptserver","scriptgeneral","replicatedstorage","players"];
+const expandedSet = new Set(ROOT_ORDER);
+let selectedId = null;
+let openTabs = [];
+let activeTab = "viewport";
+let blockCounter = 0;
+let currentTool = "select"; // select | move | scale | rotate
+let isPlaying = false;
+
+// ── root nodes ──
+function mkRoot(id,name,kind){ nodes[id]={id,name,type:"root",kind,parent:null,children:[]}; }
+mkRoot("workspace","Workspace","world");
+mkRoot("scriptserver","ScriptServer","scripts");
+mkRoot("scriptgeneral","ScriptGeneral","scripts");
+mkRoot("replicatedstorage","ReplicatedStorage","mixed");
+mkRoot("players","Players","scripts");
+
+function getRootAncestor(node){
+  let cur=node; while(cur.parent!==null)cur=nodes[cur.parent]; return cur;
+}
+
+function nextName(parent,base){
+  const used=parent.children.map(c=>nodes[c].name);
+  let n=1; while(used.includes(base+n))n++;
+  return base+n;
+}
+
+function randomColor(){
+  const p=["#33D6E0","#FF9E5E","#B98CFF","#59E6A6","#FF6FA5","#FFC24B","#7FA8FF","#F45B69","#6BE675","#FF8AD8"];
+  return p[Math.floor(Math.random()*p.length)];
+}
+
+function nextPos(){
+  const i=blockCounter++;
+  return {x:(i%5)*6-12, y:3, z:Math.floor(i/5)*6};
+}
+
+function starterCode(type,name){
+  if(type==="script") return `-- Script Codavaso : ${name}\n-- Executé côté serveur\n\nevenement Demarrage()\n    afficher("${name} charge sur le serveur")\nfin\n`;
+  return `-- Genvisit Codavaso : ${name}\n-- Executé côté client (joueur)\n\nevenement Demarrage()\n    local joueur = JoueurLocal\n    afficher(joueur.Nom .. " est en jeu")\nfin\n`;
+}
+
+// ── what can be inserted where ──
+function allowedInserts(node){
+  if(node.type==="script"||node.type==="genvisit") return [];
+  // blocks can contain scripts
+  if(node.type==="block") return ["script","genvisit"];
+  if(node.type==="root"||node.type==="folder"||node.type==="model"){
+    if(node.kind==="world")    return ["block","model","script","genvisit"];
+    if(node.kind==="scripts")  return ["script","genvisit","folder"];
+    if(node.kind==="mixed")    return ["script","genvisit","block","model","folder"];
+  }
+  return [];
+}
+
+const INSERT_META={
+  block:   {label:"Bloc",    glyph:"▣"},
+  model:   {label:"Modèle",  glyph:"⬚"},
+  script:  {label:"Script",  glyph:"{}"},
+  genvisit:{label:"Genvisit",glyph:"▶"},
+  folder:  {label:"Dossier", glyph:"📁"}
+};
+
+function addChild(parentId,type){
+  const parent=nodes[parentId]; if(!parent)return null;
+  const id=uid();
+  const base=INSERT_META[type].label;
+  const name=nextName(parent,base);
+  const node={id,name,type,parent:parentId,children:[]};
+
+  if(type==="folder") node.kind=parent.kind||"mixed";
+  if(type==="model")  node.kind="world";
+  if(type==="block"){
+    node.color=randomColor(); node.traverse=false;
+    node.position=nextPos(); node.size={x:4,y:4,z:4}; node.rotation={x:0,y:0,z:0};
+  }
+  if(type==="script"||type==="genvisit"){
+    node.enabled=true; node.code=starterCode(type,name);
+  }
+
+  nodes[id]=node;
+  parent.children.push(id);
+  expandedSet.add(parentId);
+
+  // spawn in 3D if under workspace tree
+  const root=getRootAncestor(node);
+  if(root.id==="workspace"){
+    if(type==="block") spawnBlock(node, parent);
+    if(type==="model") spawnGroup(node, parent);
+  }
+
+  renderTree(); selectNode(id);
+  return id;
+}
+
+function collectDesc(id,out=[]){
+  out.push(id);
+  nodes[id].children.forEach(c=>collectDesc(c,out));
+  return out;
+}
+
+function doDelete(id){
+  const node=nodes[id]; if(!node||node.type==="root")return;
+  const parent=nodes[node.parent];
+  const doomed=collectDesc(id,[]);
+  doomed.forEach(did=>{ dispose3D(did); openTabs=openTabs.filter(t=>t!==did); });
+  if(doomed.includes(selectedId))selectedId=null;
+  if(doomed.includes(activeTab))activeTab="viewport";
+  parent.children=parent.children.filter(c=>c!==id);
+  doomed.forEach(did=>delete nodes[did]);
+  renderTree(); renderTabs(); switchActiveTab(); renderProps(); highlightSelected();
+}
+
+/* ═══════════════════════════════════════
+   THREE.JS SCENE
+═══════════════════════════════════════ */
+const container=document.getElementById("canvas-container");
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x0a1119);
+scene.fog=new THREE.Fog(0x0a1119,70,180);
+
+const camera=new THREE.PerspectiveCamera(50,1,.1,1000);
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+container.appendChild(renderer.domElement);
+renderer.domElement.style.display="block";
+renderer.domElement.style.width="100%";
+renderer.domElement.style.height="100%";
+
+scene.add(new THREE.HemisphereLight(0x8fd9ff,0x0a1119,.65));
+const dir=new THREE.DirectionalLight(0xffffff,.9); dir.position.set(30,50,20); scene.add(dir);
+scene.add(new THREE.AmbientLight(0x335566,.35));
+scene.add(new THREE.GridHelper(80,40,0x1c3a44,0x142530));
+
+const worldGroup=new THREE.Group(); scene.add(worldGroup);
+const obj3D={"workspace":worldGroup};
+const blockMeshes=[];
+
+function spawnBlock(node, parent){
+  const geo=new THREE.BoxGeometry(node.size.x,node.size.y,node.size.z);
+  const mat=new THREE.MeshStandardMaterial({
+    color:node.color, roughness:.55, metalness:.08,
+    transparent:node.traverse, opacity:node.traverse?.35:1
+  });
+  const mesh=new THREE.Mesh(geo,mat);
+  mesh.position.set(node.position.x,node.position.y,node.position.z);
+  mesh.rotation.set(
+    THREE.MathUtils.degToRad(node.rotation.x||0),
+    THREE.MathUtils.degToRad(node.rotation.y||0),
+    THREE.MathUtils.degToRad(node.rotation.z||0)
+  );
+  mesh.userData.nodeId=node.id;
+  const p=obj3D[parent.id]||worldGroup;
+  p.add(mesh); obj3D[node.id]=mesh; blockMeshes.push(mesh);
+}
+
+function spawnGroup(node, parent){
+  const g=new THREE.Group();
+  (obj3D[parent.id]||worldGroup).add(g);
+  obj3D[node.id]=g;
+}
+
+function dispose3D(id){
+  const o=obj3D[id]; if(!o)return;
+  if(o.geometry)o.geometry.dispose();
+  if(o.material)o.material.dispose();
+  if(o.parent)o.parent.remove(o);
+  const i=blockMeshes.indexOf(o); if(i>=0)blockMeshes.splice(i,1);
+  delete obj3D[id];
+}
+
+/* BASEPLATE */
+(function(){
+  const id=uid(); const parent=nodes.workspace;
+  const node={id,name:"Baseplate",type:"block",parent:"workspace",children:[],
+    color:"#3f6f86",traverse:false,position:{x:0,y:-1,z:0},size:{x:60,y:2,z:60},rotation:{x:0,y:0,z:0}};
+  nodes[id]=node; parent.children.push(id); spawnBlock(node,parent);
+})();
+
+/* SPAWNPOINT — traversable start/finish block with its attached script */
+(function(){
+  const parent=nodes.workspace;
+  const blockId=uid();
+  const blockNode={id:blockId,name:"SpawnPoint",type:"block",parent:"workspace",children:[],
+    color:"#59e6a6",traverse:true,position:{x:0,y:2,z:0},size:{x:3,y:1,z:3},rotation:{x:0,y:0,z:0}};
+  nodes[blockId]=blockNode; parent.children.push(blockId); spawnBlock(blockNode,parent);
+
+  const scriptId=uid();
+  const scriptNode={id:scriptId,name:"Spawn",type:"script",parent:blockId,children:[],enabled:true,
+    code:"player.apparation(bloc.spawnpoint)\nend.total\n"};
+  nodes[scriptId]=scriptNode; blockNode.children.push(scriptId);
+  expandedSet.add(blockId);
+})();
+
+/* DEFAULT PLAYER MOVEMENT GENVISIT — pre-created under Players */
+(function(){
+  const parent=nodes.players;
+  const id=uid();
+  const code=
+`player.advance = player.walk = player.speed(walk)
+      player.walk = 5
+      player.advance = key.(function : z)
+      player.run = 10
+      player.speed = 5(walk) and 10(run)
+player.inadvance = player.walk = player.speed(walk)
+      player.walk = -5
+      player.advance = key.(function : s)
+      player.run = -10
+      player.speed = -5(walk) and -10(run)
+keyboard(d and q) = right and left.keyboard(frensh)
+      end
+end.final(function)
+`;
+  const node={id,name:"ControleJoueur",type:"genvisit",parent:"players",children:[],enabled:true,code};
+  nodes[id]=node; parent.children.push(id);
+  expandedSet.add("players");
+})();
+
+/* ── SELECTION HIGHLIGHT ── */
+let selEdge=null;
+function highlightSelected(){
+  if(selEdge){scene.remove(selEdge);selEdge.geometry.dispose();selEdge.material.dispose();selEdge=null;}
+  if(!selectedId)return;
+  const o=obj3D[selectedId]; if(!o||!o.geometry)return;
+  selEdge=new THREE.LineSegments(
+    new THREE.EdgesGeometry(o.geometry),
+    new THREE.LineBasicMaterial({color:0x33d6e0})
+  );
+  o.getWorldPosition(selEdge.position);
+  selEdge.quaternion.copy(o.getWorldQuaternion(new THREE.Quaternion()));
+  scene.add(selEdge);
+}
+
+/* ── CAMERA ORBIT ── */
+const cam={r:46,theta:.8,phi:1.05,target:new THREE.Vector3(0,3,0)};
+function applyCam(){
+  camera.position.x=cam.target.x+cam.r*Math.sin(cam.phi)*Math.sin(cam.theta);
+  camera.position.y=cam.target.y+cam.r*Math.cos(cam.phi);
+  camera.position.z=cam.target.z+cam.r*Math.sin(cam.phi)*Math.cos(cam.theta);
+  camera.lookAt(cam.target);
+}
+applyCam();
+
+document.getElementById("cam-reset").addEventListener("click",()=>{
+  cam.r=46; cam.theta=.8; cam.phi=1.05; cam.target.set(0,3,0); applyCam();
+});
+
+/* ── POINTER EVENTS on 3D canvas ── */
+const dom=renderer.domElement;
+dom.style.touchAction="none";
+let drag=false,lastX=0,lastY=0,moved=0;
+
+// gizmo drag state
+let gizmoDrag=false, gizmoAxis=null, gizmoStartMouse=new THREE.Vector2(), gizmoStartVal=0;
+let gizmoHelpers=[];
+
+dom.addEventListener("pointerdown",e=>{
+  // check gizmo hit first
+  if(currentTool!=="select" && selectedId && obj3D[selectedId]){
+    const hit=pickGizmo(e);
+    if(hit){ startGizmoDrag(e,hit); return; }
+  }
+  drag=true; lastX=e.clientX; lastY=e.clientY; moved=0;
+  dom.setPointerCapture(e.pointerId);
+});
+dom.addEventListener("pointermove",e=>{
+  if(gizmoDrag){ updateGizmoDrag(e); return; }
+  if(!drag)return;
+  const dx=e.clientX-lastX, dy=e.clientY-lastY;
+  moved+=Math.abs(dx)+Math.abs(dy);
+  cam.theta-=dx*.006;
+  cam.phi=Math.max(.15,Math.min(Math.PI-.15,cam.phi-dy*.006));
+  lastX=e.clientX; lastY=e.clientY; applyCam();
+});
+dom.addEventListener("pointerup",e=>{
+  if(gizmoDrag){ endGizmoDrag(); return; }
+  drag=false;
+  if(moved<5) pickObject(e);
+});
+dom.addEventListener("wheel",e=>{
+  e.preventDefault();
+  cam.r=Math.max(6,Math.min(180,cam.r+e.deltaY*.04));
+  applyCam();
+},{passive:false});
+
+const ray=new THREE.Raycaster();
+const ptr=new THREE.Vector2();
+function toNDC(e){
+  const r=dom.getBoundingClientRect();
+  ptr.x=((e.clientX-r.left)/r.width)*2-1;
+  ptr.y=-((e.clientY-r.top)/r.height)*2+1;
+}
+function pickObject(e){
+  toNDC(e); ray.setFromCamera(ptr,camera);
+  const hits=ray.intersectObjects(blockMeshes,false);
+  if(hits.length){
+    const id=hits[0].object.userData.nodeId;
+    let cur=nodes[id]; while(cur.parent){expandedSet.add(cur.parent);cur=nodes[cur.parent];}
+    selectNode(id);
+  }
+}
+
+/* ── GIZMO ── */
+const GIZMO_COLORS={x:0xff4444,y:0x44ff88,z:0x4488ff};
+const GIZMO_SCALE=3.5;
+let gizmoGroup=null;
+
+function clearGizmo(){
+  if(gizmoGroup){scene.remove(gizmoGroup);gizmoGroup=null;}
+  gizmoHelpers=[];
+}
+
+function buildGizmo(){
+  clearGizmo();
+  if(!selectedId||!obj3D[selectedId]||!obj3D[selectedId].geometry||currentTool==="select")return;
+  const mesh=obj3D[selectedId];
+  gizmoGroup=new THREE.Group();
+  const wp=new THREE.Vector3(); mesh.getWorldPosition(wp);
+  gizmoGroup.position.copy(wp);
+
+  const axes=[
+    {axis:"x",dir:new THREE.Vector3(1,0,0)},
+    {axis:"y",dir:new THREE.Vector3(0,1,0)},
+    {axis:"z",dir:new THREE.Vector3(0,0,1)}
+  ];
+
+  axes.forEach(({axis,dir})=>{
+    const mat=new THREE.MeshBasicMaterial({color:GIZMO_COLORS[axis],depthTest:false});
+    let handle;
+    if(currentTool==="move"){
+      const shaft=new THREE.CylinderGeometry(.08,.08,GIZMO_SCALE,.8);
+      const tip=new THREE.ConeGeometry(.22,.55,8);
+      const sm=new THREE.Mesh(shaft,mat); sm.position.copy(dir.clone().multiplyScalar(GIZMO_SCALE/2));
+      const tm=new THREE.Mesh(tip,mat); tm.position.copy(dir.clone().multiplyScalar(GIZMO_SCALE+.27));
+      if(axis==="x"){sm.rotation.z=-Math.PI/2;tm.rotation.z=-Math.PI/2;}
+      else if(axis==="z"){sm.rotation.x=Math.PI/2;tm.rotation.x=Math.PI/2;}
+      handle=new THREE.Group(); handle.add(sm); handle.add(tm);
+    } else if(currentTool==="scale"){
+      const shaft=new THREE.CylinderGeometry(.07,.07,GIZMO_SCALE,.8);
+      const tip=new THREE.BoxGeometry(.38,.38,.38);
+      const sm=new THREE.Mesh(shaft,mat); sm.position.copy(dir.clone().multiplyScalar(GIZMO_SCALE/2));
+      const tm=new THREE.Mesh(tip,mat); tm.position.copy(dir.clone().multiplyScalar(GIZMO_SCALE+.19));
+      if(axis==="x"){sm.rotation.z=-Math.PI/2;}
+      else if(axis==="z"){sm.rotation.x=Math.PI/2;}
+      handle=new THREE.Group(); handle.add(sm); handle.add(tm);
+    } else if(currentTool==="rotate"){
+      const ring=new THREE.TorusGeometry(GIZMO_SCALE,.09,8,32);
+      handle=new THREE.Mesh(ring,mat);
+      if(axis==="x") handle.rotation.y=Math.PI/2;
+      else if(axis==="z") handle.rotation.x=Math.PI/2;
+    }
+    if(handle){
+      handle.userData.gizmoAxis=axis;
+      handle.traverse(c=>{ if(c.isMesh) c.userData.gizmoAxis=axis; });
+      gizmoGroup.add(handle);
+      if(handle.isGroup) handle.children.forEach(c=>gizmoHelpers.push(c));
+      else gizmoHelpers.push(handle);
+    }
+  });
+  scene.add(gizmoGroup);
+}
+
+function pickGizmo(e){
+  toNDC(e); ray.setFromCamera(ptr,camera);
+  const allGizmoMeshes=[];
+  gizmoHelpers.forEach(h=>{
+    if(h.isGroup) h.traverse(c=>{if(c.isMesh)allGizmoMeshes.push(c);});
+    else if(h.isMesh) allGizmoMeshes.push(h);
+  });
+  if(!allGizmoMeshes.length)return null;
+  const hits=ray.intersectObjects(allGizmoMeshes,true);
+  if(hits.length) return hits[0].object.userData.gizmoAxis||null;
+  return null;
+}
+
+function startGizmoDrag(e,axis){
+  gizmoDrag=true; gizmoAxis=axis;
+  gizmoStartMouse.set(e.clientX,e.clientY);
+  const node=nodes[selectedId];
+  if(currentTool==="move") gizmoStartVal={...node.position};
+  else if(currentTool==="scale") gizmoStartVal={...node.size};
+  else if(currentTool==="rotate") gizmoStartVal={...node.rotation};
+  dom.setPointerCapture(e.pointerId);
+}
+
+function updateGizmoDrag(e){
+  if(!gizmoDrag||!selectedId)return;
+  const dx=e.clientX-gizmoStartMouse.x;
+  const dy=e.clientY-gizmoStartMouse.y;
+  const delta=(Math.abs(dx)>Math.abs(dy)?dx:-dy)*0.05;
+  const node=nodes[selectedId];
+  const mesh=obj3D[selectedId]; if(!mesh)return;
+
+  if(currentTool==="move"){
+    node.position={...gizmoStartVal};
+    node.position[gizmoAxis]+=delta*1.2;
+    mesh.position.set(node.position.x,node.position.y,node.position.z);
+  } else if(currentTool==="scale"){
+    node.size={...gizmoStartVal};
+    node.size[gizmoAxis]=Math.max(.3,gizmoStartVal[gizmoAxis]+delta);
+    mesh.geometry.dispose();
+    mesh.geometry=new THREE.BoxGeometry(node.size.x,node.size.y,node.size.z);
+  } else if(currentTool==="rotate"){
+    node.rotation={...gizmoStartVal};
+    node.rotation[gizmoAxis]=gizmoStartVal[gizmoAxis]+delta*30;
+    mesh.rotation.set(
+      THREE.MathUtils.degToRad(node.rotation.x),
+      THREE.MathUtils.degToRad(node.rotation.y),
+      THREE.MathUtils.degToRad(node.rotation.z)
+    );
+  }
+  const wp=new THREE.Vector3(); mesh.getWorldPosition(wp);
+  if(gizmoGroup) gizmoGroup.position.copy(wp);
+  highlightSelected();
+  renderProps();
+}
+
+function endGizmoDrag(){
+  gizmoDrag=false; gizmoAxis=null;
+}
+
+/* ── RESIZE ── */
+function resizeRenderer(){
+  const w=container.clientWidth,h=container.clientHeight;
+  if(!w||!h)return;
+  renderer.setSize(w,h,false);
+  camera.aspect=w/h; camera.updateProjectionMatrix();
+}
+window.addEventListener("resize",resizeRenderer);
+new ResizeObserver(resizeRenderer).observe(container);
+
+/* ── EDIT-MODE KEYBOARD (fly camera Z Q S D + E/A, Suppr) ──
+   Declared before the animate loop so it's never referenced
+   before initialization. */
+const editKeys={};
+document.addEventListener("keydown",e=>{
+  if(isPlaying)return;
+  const tag=(document.activeElement||{}).tagName;
+  if(tag==="INPUT"||tag==="TEXTAREA"){ return; }
+  editKeys[e.key.toLowerCase()]=true;
+  if(e.code==="Delete"||e.code==="Backspace"){
+    if(selectedId && nodes[selectedId] && nodes[selectedId].type!=="root"){
+      doDelete(selectedId);
+    }
+  }
+});
+document.addEventListener("keyup",e=>{ delete editKeys[e.key.toLowerCase()]; });
+
+/* ── ANIMATE ── */
+let pt=0;
+const editClock=new THREE.Clock();
+function animate(){
+  requestAnimationFrame(animate);
+  pt+=.04;
+  if(selEdge) selEdge.material.color.setHSL(.5,.75,.55+Math.sin(pt)*.08);
+
+  // fly-camera navigation in edit mode: Z Q S D move, E up, A down
+  if(!isPlaying && activeTab==="viewport"){
+    const edt=Math.min(editClock.getDelta(),.08);
+    const speed=20;
+    const fwd=new THREE.Vector3(-Math.sin(cam.theta),0,-Math.cos(cam.theta));
+    const right=new THREE.Vector3(Math.cos(cam.theta),0,-Math.sin(cam.theta));
+    let mv=new THREE.Vector3();
+    if(editKeys["z"]) mv.add(fwd);
+    if(editKeys["s"]) mv.sub(fwd);
+    if(editKeys["q"]) mv.sub(right);
+    if(editKeys["d"]) mv.add(right);
+    let moved=false;
+    if(mv.lengthSq()>0){ mv.normalize().multiplyScalar(speed*edt); cam.target.add(mv); moved=true; }
+    if(editKeys["e"]){ cam.target.y+=speed*edt; moved=true; }
+    if(editKeys["a"]){ cam.target.y-=speed*edt; moved=true; }
+    if(moved) applyCam();
+  } else {
+    editClock.getDelta(); // avoid a large delta jump when navigation resumes
+  }
+
+  renderer.render(scene,camera);
+}
+resizeRenderer(); animate();
+
+/* ═══════════════════════════════════════
+   CODAVASO — LIGHTWEIGHT SCRIPT READER
+   (reads a few known patterns from the example
+   syntax; not a full language interpreter)
+═══════════════════════════════════════ */
+function collectEnabledCode(rootIds){
+  let code="";
+  rootIds.forEach(rid=>{
+    collectDesc(rid,[]).forEach(id=>{
+      const n=nodes[id];
+      if(n && (n.type==="script"||n.type==="genvisit") && n.enabled!==false){
+        code += "\n" + n.code;
+      }
+    });
+  });
+  return code;
+}
+
+function parseKeyBindings(code){
+  const res={forward:"z",back:"s",left:"q",right:"d",walkSpeed:6,runSpeed:null};
+  // in this syntax, both the "advance" and "inadvance" sections declare their
+  // trigger with "player.advance = key.(function : X)" — first match = forward, second = back
+  const keyMatches=[...code.matchAll(/player\.advance\s*=\s*key\.\(function\s*:\s*(\w)\w*\)/gi)];
+  if(keyMatches[0]) res.forward = keyMatches[0][1].toLowerCase();
+  if(keyMatches[1]) res.back = keyMatches[1][1].toLowerCase();
+  const kbM = code.match(/keyboard[.\w()\-]*\(\s*(\w)\w*\s+and\s+(\w)\w*\s*\)\s*=\s*right\s+and\s+left/i);
+  if(kbM){ res.right = kbM[1].toLowerCase(); res.left = kbM[2].toLowerCase(); }
+  const walkM = code.match(/player\.walk\s*=\s*(-?\d+)/);
+  if(walkM) res.walkSpeed = Math.max(1,Math.abs(parseFloat(walkM[1])));
+  const runM = code.match(/player\.run\s*=\s*(-?\d+)/);
+  if(runM) res.runSpeed = Math.max(1,Math.abs(parseFloat(runM[1])));
+  return res;
+}
+
+function parseInitialStats(code){
+  const stats={life:null,speed:null};
+  const lifeM = code.match(/player\.life\s*=\s*(\d+)/);
+  if(lifeM) stats.life = parseFloat(lifeM[1]);
+  const speedM = code.match(/player\.speed\s*=\s*(\d+)\s*(?!\()/);
+  if(speedM) stats.speed = parseFloat(speedM[1]);
+  return stats;
+}
+
+function parseTouchEffects(code){
+  const effects=[];
+  const re=/if\.player\.touch\((bloc|model)\.([\w\-]+)\)([\s\S]*?)(?=\nif\.|\nend\.|$)/gi;
+  let m;
+  while((m=re.exec(code))){
+    const kind=m[1].toLowerCase(), name=m[2].toLowerCase(), body=m[3];
+    const assign=body.match(/player\.(life|speed)\s*=\s*(\+)?(-?\d+)/i);
+    if(assign){
+      effects.push({kind,name,key:assign[1].toLowerCase(),op:assign[2]==="+"?"add":"set",value:parseFloat(assign[3])});
+    }
+  }
+  return effects;
+}
+
+/* ═══════════════════════════════════════
+   PLAY MODE
+═══════════════════════════════════════ */
+const playOverlay=document.getElementById("playOverlay");
+const playCanvas=document.getElementById("play-canvas");
+const playStatus=document.getElementById("play-status");
+const playBtn=document.getElementById("play-btn");
+const stopBtn=document.getElementById("stop-btn");
+
+let playRenderer=null, playCamera=null, playScene=null;
+let playKeys={};
+let playAnimId=null;
+let playControls={forward:"z",back:"s",left:"q",right:"d",walkSpeed:6};
+let playStats={life:null,maxLife:null,speed:6};
+let playTouchEffects=[];
+let playTouchState=new Map();
+let playSpawnPos=new THREE.Vector3(0,5,0);
+let statusThrottle=0;
+
+function findSpawnPosition(){
+  const spawnNode = Object.values(nodes).find(n=>
+    n.type==="block" && n.name && n.name.toLowerCase().includes("spawnpoint") && getRootAncestor(n).id==="workspace"
+  );
+  if(spawnNode){
+    return new THREE.Vector3(spawnNode.position.x, spawnNode.position.y + (spawnNode.size.y/2) + 1.2, spawnNode.position.z);
+  }
+  return new THREE.Vector3(0,5,0);
+}
+
+function startPlay(){
+  isPlaying=true;
+  playBtn.classList.add("running"); playBtn.innerHTML='<span class="tb-icon">■</span>Stop';
+  playOverlay.classList.add("active");
+
+  // ── read scripts (best-effort Codavaso reader) ──
+  const playersCode = collectEnabledCode(["players"]);
+  const allCode = collectEnabledCode(["workspace","scriptserver","scriptgeneral","players","replicatedstorage"]);
+  playControls = parseKeyBindings(playersCode);
+  const initStats = parseInitialStats(allCode);
+  playStats.life = initStats.life; playStats.maxLife = initStats.life;
+  playStats.speed = initStats.speed || playControls.walkSpeed || 6;
+  playTouchEffects = parseTouchEffects(allCode);
+  playTouchState = new Map();
+  playSpawnPos = findSpawnPosition();
+
+  playStatus.textContent = "Simulation en cours…";
+
+  // build play scene clone
+  playScene=new THREE.Scene();
+  playScene.background=new THREE.Color(0x0e1e2a);
+  playScene.fog=new THREE.Fog(0x0e1e2a,60,150);
+  playScene.add(new THREE.HemisphereLight(0xaae0ff,0x0a1119,.7));
+  const pd=new THREE.DirectionalLight(0xffffff,1); pd.position.set(30,50,20); playScene.add(pd);
+  playScene.add(new THREE.GridHelper(80,40,0x1c3a44,0x142530));
+
+  // clone all blocks, tagging with name / model membership for touch detection
+  const solidBlocks=[];
+  blockMeshes.forEach(m=>{
+    const srcNode = nodes[m.userData.nodeId];
+    if(!srcNode) return;
+    const parentNode = nodes[srcNode.parent];
+    const geo=m.geometry.clone();
+    const mat=new THREE.MeshStandardMaterial({
+      color:m.material.color.clone(), roughness:.55, metalness:.08,
+      transparent:m.material.transparent, opacity:m.material.opacity
+    });
+    const cm=new THREE.Mesh(geo,mat);
+    cm.position.copy(m.position); cm.rotation.copy(m.rotation);
+    cm.userData.traverse = !!srcNode.traverse;
+    cm.userData.blockName = (srcNode.name||"").toLowerCase();
+    cm.userData.modelName = (parentNode && parentNode.type==="model") ? parentNode.name.toLowerCase() : null;
+    cm.userData.size = {...srcNode.size};
+    cm.userData.pos = {...srcNode.position};
+    playScene.add(cm);
+    if(!srcNode.traverse) solidBlocks.push(cm);
+  });
+
+  // player — invisible anchor for true first-person (no body in view)
+  const player=new THREE.Object3D();
+  player.position.copy(playSpawnPos);
+  playScene.add(player);
+  playScene.userData.player=player;
+
+  playCamera=new THREE.PerspectiveCamera(70,1,.1,500);
+  if(!playRenderer) playRenderer=new THREE.WebGLRenderer({canvas:playCanvas,antialias:true});
+
+  function resizePlay(){
+    const w=playCanvas.parentElement.clientWidth, h=playCanvas.parentElement.clientHeight;
+    playRenderer.setSize(w,h,false);
+    playCamera.aspect=w/h; playCamera.updateProjectionMatrix();
+  }
+  resizePlay();
+  const playResizeObs=new ResizeObserver(resizePlay);
+  playResizeObs.observe(playCanvas.parentElement);
+  playScene.userData.resizeObs=playResizeObs;
+
+  document.addEventListener("keydown",onPlayKey); document.addEventListener("keyup",onPlayKeyUp);
+
+  let yaw=0,pitch=0;
+  playCanvas.addEventListener("click",requestPlayLock);
+  function requestPlayLock(){ if(playCanvas.requestPointerLock) playCanvas.requestPointerLock(); }
+  document.addEventListener("mousemove",onPlayMouse);
+  function onPlayMouse(e){
+    if(document.pointerLockElement!==playCanvas)return;
+    yaw-=e.movementX*.002; pitch-=e.movementY*.002;
+    pitch=Math.max(-.8,Math.min(.8,pitch));
+    playCamera.rotation.order="YXZ";
+    playCamera.rotation.y=yaw; playCamera.rotation.x=pitch;
+  }
+  playScene.userData.cleanupMouse=()=>document.removeEventListener("mousemove",onPlayMouse);
+  playScene.userData.cleanupClick=()=>playCanvas.removeEventListener("click",requestPlayLock);
+
+  const PLAYER_R=.45, PLAYER_H=1.8, EYE_HEIGHT=PLAYER_H/2-.15;
+  const GRAVITY=-28, JUMP_SPEED=10.5;
+  let playerVelY=0, grounded=false, pendingJump=false;
+
+  function tryMove(player, dx, dz){
+    const nx=player.position.x+dx, nz=player.position.z+dz;
+    for(const b of solidBlocks){
+      const top = b.userData.pos.y + b.userData.size.y/2;
+      if(player.position.y - PLAYER_H/2 >= top - 0.08) continue; // standing above the block: pass freely
+      const hx = b.userData.size.x/2 + PLAYER_R, hz = b.userData.size.z/2 + PLAYER_R;
+      if(Math.abs(nx-b.userData.pos.x) < hx && Math.abs(nz-b.userData.pos.z) < hz) return false;
+    }
+    player.position.x=nx; player.position.z=nz;
+    return true;
+  }
+
+  function getGroundTop(x,z){
+    let best=-Infinity;
+    for(const b of solidBlocks){
+      const hx=b.userData.size.x/2+PLAYER_R*0.6, hz=b.userData.size.z/2+PLAYER_R*0.6;
+      if(Math.abs(x-b.userData.pos.x)<hx && Math.abs(z-b.userData.pos.z)<hz){
+        const top=b.userData.pos.y+b.userData.size.y/2;
+        if(top>best) best=top;
+      }
+    }
+    return best===-Infinity ? -20 : best;
+  }
+
+  function checkTouch(player){
+    playScene.children.forEach(c=>{
+      if(!c.userData || (!c.userData.blockName && !c.userData.modelName)) return;
+      const hx=(c.userData.size.x/2)+PLAYER_R, hy=(c.userData.size.y/2)+PLAYER_H/2, hz=(c.userData.size.z/2)+PLAYER_R;
+      const overlapping =
+        Math.abs(player.position.x-c.userData.pos.x)<hx &&
+        Math.abs((player.position.y)-c.userData.pos.y)<hy &&
+        Math.abs(player.position.z-c.userData.pos.z)<hz;
+      const wasTouching = playTouchState.get(c) || false;
+      if(overlapping && !wasTouching){
+        playTouchEffects.forEach(fx=>{
+          const nameMatch = (fx.kind==="bloc" && c.userData.blockName===fx.name) ||
+                             (fx.kind==="model" && c.userData.modelName===fx.name);
+          if(!nameMatch) return;
+          if(fx.key==="life"){
+            playStats.life = fx.op==="add" ? (playStats.life||0)+fx.value : fx.value;
+          } else if(fx.key==="speed"){
+            playStats.speed = fx.op==="add" ? (playStats.speed||0)+fx.value : fx.value;
+            playStats.speed = Math.max(1,playStats.speed);
+          }
+        });
+      }
+      playTouchState.set(c, overlapping);
+    });
+    if(playStats.life!==null && playStats.life<=0){
+      player.position.copy(playSpawnPos);
+      playerVelY=0;
+      playStats.life = playStats.maxLife;
+      playStats.speed = playControls.walkSpeed || 6;
+      playTouchState.forEach((v,k)=>playTouchState.set(k,false));
+    }
+  }
+
+  const clock=new THREE.Clock();
+  function playLoop(){
+    playAnimId=requestAnimationFrame(playLoop);
+    const dt=Math.min(clock.getDelta(),.05);
+    const player=playScene.userData.player;
+    const speed=playStats.speed||6;
+
+    const fwd=new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw)).normalize();
+    const right=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw)).normalize();
+    let mv=new THREE.Vector3();
+    if(playKeys[playControls.forward]||playKeys["arrowup"])    mv.add(fwd);
+    if(playKeys[playControls.back]||playKeys["arrowdown"])     mv.sub(fwd);
+    if(playKeys[playControls.left]||playKeys["arrowleft"])     mv.sub(right);
+    if(playKeys[playControls.right]||playKeys["arrowright"])   mv.add(right);
+    if(mv.lengthSq()>0){ mv.normalize().multiplyScalar(speed*dt); tryMove(player,mv.x,mv.z); }
+
+    // gravity + jump (Space)
+    if(pendingJump && grounded){ playerVelY=JUMP_SPEED; grounded=false; }
+    pendingJump=false;
+    playerVelY += GRAVITY*dt;
+    let newY = player.position.y + playerVelY*dt;
+    const groundTop = getGroundTop(player.position.x, player.position.z) + PLAYER_H/2;
+    if(newY <= groundTop && playerVelY<=0){ newY=groundTop; playerVelY=0; grounded=true; }
+    else { grounded=false; }
+    player.position.y = newY;
+
+    checkTouch(player);
+
+    // true first-person: camera sits at eye height, rotation already driven by mouse-look
+    playCamera.position.set(player.position.x, player.position.y + EYE_HEIGHT, player.position.z);
+
+    statusThrottle++;
+    if(statusThrottle%10===0){
+      const parts=[];
+      if(playStats.life!==null) parts.push("❤ "+Math.round(playStats.life));
+      parts.push("⚡ "+Math.round(playStats.speed));
+      playStatus.textContent=parts.join("   ");
+    }
+
+    playRenderer.render(playScene,playCamera);
+  }
+  playScene.userData.requestJump=()=>{ pendingJump=true; };
+  playLoop();
+}
+
+function stopPlay(){
+  isPlaying=false;
+  playBtn.classList.remove("running"); playBtn.innerHTML='<span class="tb-icon">▶</span>Tester';
+  playOverlay.classList.remove("active");
+  if(playAnimId){ cancelAnimationFrame(playAnimId); playAnimId=null; }
+  document.removeEventListener("keydown",onPlayKey);
+  document.removeEventListener("keyup",onPlayKeyUp);
+  if(playScene && playScene.userData){
+    if(playScene.userData.cleanupMouse) playScene.userData.cleanupMouse();
+    if(playScene.userData.cleanupClick) playScene.userData.cleanupClick();
+    if(playScene.userData.resizeObs) playScene.userData.resizeObs.disconnect();
+  }
+  if(document.exitPointerLock) document.exitPointerLock();
+  playKeys={};
+}
+
+function onPlayKey(e){
+  playKeys[e.key.toLowerCase()]=true;
+  if(e.code==="Space" && !e.repeat && playScene && playScene.userData.requestJump){
+    playScene.userData.requestJump();
+  }
+  if(e.code==="Escape") stopPlay();
+}
+function onPlayKeyUp(e){ delete playKeys[e.key.toLowerCase()]; }
+
+playBtn.addEventListener("click",()=>{ isPlaying?stopPlay():startPlay(); });
+stopBtn.addEventListener("click",stopPlay);
+
+/* ═══════════════════════════════════════
+   SAVE / LOAD
+═══════════════════════════════════════ */
+function saveProject(){
+  const data={nodes:{},blockCounter,idCounter};
+  Object.keys(nodes).forEach(id=>{
+    const n=nodes[id];
+    data.nodes[id]={...n, children:[...n.children]};
+  });
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="splash-project.json"; a.click();
+  showToast("💾 Projet sauvegardé !");
+}
+
+document.getElementById("save-btn").addEventListener("click",saveProject);
+
+/* ── mobile panel toggles ── */
+document.getElementById("toggleExplorerBtn").addEventListener("click",()=>{
+  document.body.classList.toggle("show-explorer");
+  document.body.classList.remove("show-properties");
+});
+document.getElementById("togglePropsBtn").addEventListener("click",()=>{
+  document.body.classList.toggle("show-properties");
+  document.body.classList.remove("show-explorer");
+});
+document.getElementById("backdrop").addEventListener("click",()=>{
+  document.body.classList.remove("show-explorer","show-properties");
+});
+
+/* ═══════════════════════════════════════
+   TOAST
+═══════════════════════════════════════ */
+let toastT=null;
+function showToast(msg){
+  const t=document.getElementById("toast");
+  t.textContent=msg; t.classList.add("show");
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2500);
+}
+
+/* ═══════════════════════════════════════
+   TOOLS TOOLBAR
+═══════════════════════════════════════ */
+const toolBtns={"select":"tool-select","move":"tool-move","scale":"tool-scale","rotate":"tool-rotate"};
+function setTool(t){
+  currentTool=t;
+  Object.keys(toolBtns).forEach(k=>{
+    document.getElementById(toolBtns[k]).classList.toggle("active",k===t);
+  });
+  buildGizmo();
+}
+Object.keys(toolBtns).forEach(k=>
+  document.getElementById(toolBtns[k]).addEventListener("click",()=>setTool(k))
+);
+
+// toolbar add buttons
+document.getElementById("tb-add-block").addEventListener("click",()=>addChild("workspace","block"));
+document.getElementById("tb-add-model").addEventListener("click",()=>addChild("workspace","model"));
+
+/* ═══════════════════════════════════════
+   KEYBOARD SHORTCUTS (edit mode)
+   Z S Q D + E/A move the camera (fly navigation).
+   Tool switching is via the toolbar buttons only,
+   so these letters stay free for camera movement.
+═══════════════════════════════════════ */
+
+/* ═══════════════════════════════════════
+   TREE RENDERING
+═══════════════════════════════════════ */
+const ROOT_META={
+  workspace:        {abbr:"WK",color:"var(--wk)"},
+  scriptserver:     {abbr:"SS",color:"var(--ss)"},
+  scriptgeneral:    {abbr:"SG",color:"var(--sg)"},
+  replicatedstorage:{abbr:"RS",color:"var(--rs)"},
+  players:          {abbr:"PL",color:"var(--pl)"}
+};
+
+function chipHTML(node){
+  if(node.type==="block")   return `<span class="swatch" style="background:${node.color}"></span>`;
+  if(node.type==="root")    { const m=ROOT_META[node.id]; return `<span class="chip solid" style="background:${m.color}">${m.abbr}</span>`; }
+  if(node.type==="folder")  return `<span class="chip solid" style="background:#6b7a88;color:#0c1620">DIR</span>`;
+  if(node.type==="model")   return `<span class="chip outline" style="border-color:var(--mdl);color:var(--mdl)">MDL</span>`;
+  if(node.type==="script")  return `<span class="chip solid" style="background:var(--scr)">{}</span>`;
+  if(node.type==="genvisit")return `<span class="chip solid" style="background:var(--gen);color:#08131a">GEN</span>`;
+  return "";
+}
+
+function esc(s){ return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+function buildLi(id){
+  const node=nodes[id];
+  const canExpand=["root","folder","model","block"].includes(node.type) && node.children.length>0;
+  const exp=expandedSet.has(id);
+  const ins=allowedInserts(node);
+  const canDel=node.type!=="root";
+  let html=`<li><div class="node-row ${selectedId===id?"selected":""}" data-id="${id}">`;
+  if(node.children.length && ["root","folder","model","block"].includes(node.type)){
+    html+=`<span class="toggle toggle-btn" data-id="${id}">${exp?"▾":"▸"}</span>`;
+  } else {
+    html+=`<span class="toggle empty">·</span>`;
+  }
+  html+=chipHTML(node);
+  html+=`<span class="node-label" data-label="${id}">${esc(node.name)}</span>`;
+  html+=`<span class="node-actions">`;
+  if(ins.length) html+=`<button class="icon-btn add-btn" data-id="${id}" title="Ajouter">＋</button>`;
+  if(canDel) html+=`<button class="icon-btn danger del-btn" data-id="${id}" title="Supprimer (Suppr)">🗑</button>`;
+  html+=`</span></div>`;
+  if(exp && node.children.length){
+    html+=`<ul>`;
+    node.children.forEach(c=>{ html+=buildLi(c); });
+    html+=`</ul>`;
+  }
+  html+=`</li>`;
+  return html;
+}
+
+function renderTree(){
+  let html=""; ROOT_ORDER.forEach(r=>{ html+=buildLi(r); });
+  document.getElementById("tree").innerHTML=html;
+}
+
+document.getElementById("tree").addEventListener("click",e=>{
+  const tb=e.target.closest(".toggle-btn");
+  if(tb){ const id=tb.dataset.id; expandedSet.has(id)?expandedSet.delete(id):expandedSet.add(id); renderTree(); return; }
+  const ab=e.target.closest(".add-btn"); if(ab){ openAddMenu(ab); return; }
+  const db=e.target.closest(".del-btn"); if(db){ doDelete(db.dataset.id); return; }
+  const row=e.target.closest(".node-row"); if(row){ selectNode(row.dataset.id); }
+});
+document.getElementById("tree").addEventListener("dblclick",e=>{
+  const label=e.target.closest(".node-label"); if(label){ startRename(label.dataset.id); }
+});
+
+function startRename(id){
+  const node=nodes[id]; if(node.type==="root")return;
+  const el=document.querySelector(`.node-label[data-label="${id}"]`); if(!el)return;
+  el.innerHTML=`<input type="text" value="${esc(node.name)}"/>`;
+  const inp=el.querySelector("input"); inp.focus(); inp.select();
+  const commit=()=>{ const v=inp.value.trim(); if(v)node.name=v; renderTree(); renderTabs(); if(activeTab===id)updateEditorStatus(); if(selectedId===id)renderProps(); };
+  inp.addEventListener("blur",commit);
+  inp.addEventListener("keydown",ev=>{ if(ev.key==="Enter")inp.blur(); if(ev.key==="Escape"){inp.value=node.name;inp.blur();} });
+}
+
+/* ── ADD MENU ── */
+let openMenu=null;
+function closeMenu(){ if(openMenu){openMenu.remove();openMenu=null;} document.removeEventListener("click",docCloseMenu,true); }
+function docCloseMenu(e){ if(openMenu&&!openMenu.contains(e.target))closeMenu(); }
+function openAddMenu(btn){
+  closeMenu();
+  const id=btn.dataset.id, node=nodes[id], ins=allowedInserts(node);
+  const m=document.createElement("div"); m.className="add-menu";
+  ins.forEach(type=>{
+    const b=document.createElement("button");
+    b.innerHTML=`<span>${INSERT_META[type].glyph}</span><span>Ajouter ${INSERT_META[type].label}</span>`;
+    b.addEventListener("click",()=>{ addChild(id,type); closeMenu(); });
+    m.appendChild(b);
+  });
+  document.body.appendChild(m);
+  const r=btn.getBoundingClientRect();
+  m.style.top=(r.bottom+4)+"px";
+  m.style.left=Math.min(r.left,window.innerWidth-185)+"px";
+  openMenu=m;
+  setTimeout(()=>document.addEventListener("click",docCloseMenu,true),0);
+}
+
+/* ═══════════════════════════════════════
+   SELECTION / TABS / EDITOR
+═══════════════════════════════════════ */
+function selectNode(id){
+  selectedId=id; renderTree(); renderProps(); highlightSelected(); buildGizmo();
+  const node=nodes[id];
+  if(node.type==="script"||node.type==="genvisit"){ openScriptTab(id); }
+  else if(obj3D[id]){ activeTab="viewport"; renderTabs(); switchTab(); }
+}
+
+function openScriptTab(id){
+  if(!openTabs.includes(id)) openTabs.push(id);
+  activeTab=id; renderTabs(); switchTab();
+}
+
+function renderTabs(){
+  let html=`<div class="tab ${activeTab==="viewport"?"active":""}" data-tab="viewport">🌐 Aperçu 3D</div>`;
+  openTabs.forEach(id=>{
+    const n=nodes[id]; if(!n)return;
+    html+=`<div class="tab ${activeTab===id?"active":""}" data-tab="${id}">
+      <span>${n.type==="script"?"{} ":"▶ "}${esc(n.name)}</span>
+      <span class="tab-x" data-close="${id}">✕</span></div>`;
+  });
+  document.getElementById("tabbar").innerHTML=html;
+}
+document.getElementById("tabbar").addEventListener("click",e=>{
+  const cx=e.target.closest(".tab-x");
+  if(cx){ const id=cx.dataset.close; openTabs=openTabs.filter(t=>t!==id); if(activeTab===id)activeTab=openTabs.length?openTabs[openTabs.length-1]:"viewport"; renderTabs();switchTab();return; }
+  const tab=e.target.closest(".tab");
+  if(tab){ activeTab=tab.dataset.tab; if(activeTab!=="viewport")selectedId=activeTab; renderTabs();switchTab();renderTree();renderProps(); }
+});
+
+const viewportWrap=document.getElementById("viewportWrap");
+const editorWrap=document.getElementById("editorWrap");
+const editorTextarea=document.getElementById("editorTextarea");
+const editorStatus=document.getElementById("editorStatus");
+
+function switchTab(){
+  if(activeTab==="viewport"){
+    viewportWrap.style.display="block"; editorWrap.style.display="none"; resizeRenderer();
+  } else {
+    viewportWrap.style.display="none"; editorWrap.style.display="flex";
+    const n=nodes[activeTab]; if(n){ editorTextarea.value=n.code||""; updateEditorStatus(); }
+  }
+}
+function updateEditorStatus(){
+  const n=nodes[activeTab]; if(!n)return;
+  const ctx=n.type==="script"?"Serveur":"Client (joueur)";
+  editorStatus.innerHTML=`<span class="lang-badge">CODAVASO</span><span>${esc(n.name)}</span><span>·</span><span>${ctx}</span>`
+    +(n.enabled===false?`<span>· <span style="color:var(--warn)">désactivé</span></span>`:"");
+}
+editorTextarea.addEventListener("input",()=>{ const n=nodes[activeTab]; if(n)n.code=editorTextarea.value; });
+
+/* ═══════════════════════════════════════
+   PROPERTIES PANEL
+═══════════════════════════════════════ */
+const ROOT_DESC={
+  workspace:"Contient tout ce qui est visible : blocs, modèles, scripts attachés.",
+  scriptserver:"Scripts exécutés uniquement côté serveur.",
+  scriptgeneral:"Code partagé entre systèmes.",
+  replicatedstorage:"Accessible au serveur et aux clients.",
+  players:"Scripts liés au joueur."
+};
+
+function renderProps(){
+  const panel=document.getElementById("properties");
+  if(!selectedId||!nodes[selectedId]){
+    panel.innerHTML=`<div class="prop-empty"><svg width="36" height="36" viewBox="0 0 26 26"><path d="M13 1.5C13 1.5 4 12 4 17.5C4 22.5 8 25 13 25C18 25 22 22.5 22 17.5C22 12 13 1.5 13 1.5Z" fill="#1e2c39"/></svg><div>Sélectionnez un élément dans l'explorateur.</div></div>`;
+    return;
+  }
+  const node=nodes[selectedId];
+  let html="";
+  html+=`<div class="prop-title">${chipHTML(node)} ${esc(node.name)}</div>`;
+  if(node.type==="root"){
+    html+=`<div class="note-box">${ROOT_DESC[node.id]}</div>`;
+  } else {
+    html+=`<div class="prop-sub">${labelFor(node.type)}</div>`;
+    html+=`<div class="field"><label>Nom</label><input type="text" id="pName" value="${esc(node.name)}"></div>`;
+    if(node.type==="block"){
+      html+=`<div class="field"><label>Couleur</label><input type="color" id="pColor" value="${node.color}"></div>`;
+      html+=`<div class="cb-row"><input type="checkbox" id="pTraverse" ${node.traverse?"checked":""}><div><div class="cb-label">Traverse</div><div class="cb-desc">Le joueur peut traverser ce bloc.</div></div></div>`;
+      html+=`<div class="field"><label>Position X / Y / Z</label><div class="row3"><input type="number" step="0.5" id="pPx" value="${node.position.x}"><input type="number" step="0.5" id="pPy" value="${node.position.y}"><input type="number" step="0.5" id="pPz" value="${node.position.z}"></div></div>`;
+      html+=`<div class="field"><label>Taille X / Y / Z</label><div class="row3"><input type="number" step="0.5" min="0.2" id="pSx" value="${node.size.x}"><input type="number" step="0.5" min="0.2" id="pSy" value="${node.size.y}"><input type="number" step="0.5" min="0.2" id="pSz" value="${node.size.z}"></div></div>`;
+      html+=`<div class="field"><label>Rotation X / Y / Z (°)</label><div class="row3"><input type="number" step="5" id="pRx" value="${node.rotation.x||0}"><input type="number" step="5" id="pRy" value="${node.rotation.y||0}"><input type="number" step="5" id="pRz" value="${node.rotation.z||0}"></div></div>`;
+    }
+    if(node.type==="script"||node.type==="genvisit"){
+      const ctx=node.type==="script"?"Serveur":"Client";
+      html+=`<div class="chip-row"><span class="chip solid" style="background:${node.type==="script"?"var(--scr)":"var(--gen)"};color:#08131a">${ctx}</span></div>`;
+      html+=`<div class="cb-row"><input type="checkbox" id="pEnabled" ${node.enabled?"checked":""}><div><div class="cb-label">Activé</div><div class="cb-desc">Décoché : ignoré.</div></div></div>`;
+      html+=`<div class="note-box">Éditez le code dans l'onglet en haut.</div>`;
+    }
+    html+=`<div class="prop-sep"></div>`;
+    html+=`<button class="delete-btn" id="pDel">🗑 Supprimer</button>`;
+  }
+  panel.innerHTML=html;
+  bindProps(node);
+}
+
+function labelFor(t){ return {folder:"Dossier",model:"Modèle",block:"Bloc",script:"Script (serveur)",genvisit:"Genvisit (client)"}[t]||""; }
+
+function bindProps(node){
+  const q=(id)=>document.getElementById(id);
+  const pn=q("pName"); if(pn){ pn.addEventListener("input",()=>{ node.name=pn.value; renderTree();renderTabs();if(activeTab===node.id)updateEditorStatus(); }); }
+
+  if(node.type==="block"){
+    const pc=q("pColor"); if(pc){ pc.addEventListener("input",()=>{ node.color=pc.value; const m=obj3D[node.id]; if(m)m.material.color.set(node.color); renderTree(); }); }
+    const pt=q("pTraverse"); if(pt){ pt.addEventListener("change",()=>{ node.traverse=pt.checked; const m=obj3D[node.id]; if(m){m.material.transparent=node.traverse;m.material.opacity=node.traverse?.35:1;} }); }
+    [["pPx","x"],["pPy","y"],["pPz","z"]].forEach(([eid,ax])=>{
+      const el=q(eid); if(!el)return;
+      el.addEventListener("input",()=>{ node.position[ax]=parseFloat(el.value)||0; const m=obj3D[node.id]; if(m)m.position[ax]=node.position[ax]; if(gizmoGroup){const wp=new THREE.Vector3();m.getWorldPosition(wp);gizmoGroup.position.copy(wp);} highlightSelected(); });
+    });
+    [["pSx","x"],["pSy","y"],["pSz","z"]].forEach(([eid,ax])=>{
+      const el=q(eid); if(!el)return;
+      el.addEventListener("input",()=>{ const v=Math.max(.2,parseFloat(el.value)||.2); node.size[ax]=v; const m=obj3D[node.id]; if(m){m.geometry.dispose();m.geometry=new THREE.BoxGeometry(node.size.x,node.size.y,node.size.z);} highlightSelected(); });
+    });
+    [["pRx","x"],["pRy","y"],["pRz","z"]].forEach(([eid,ax])=>{
+      const el=q(eid); if(!el)return;
+      el.addEventListener("input",()=>{ node.rotation[ax]=parseFloat(el.value)||0; const m=obj3D[node.id]; if(m)m.rotation[ax]=THREE.MathUtils.degToRad(node.rotation[ax]); highlightSelected(); });
+    });
+  }
+  const pe=q("pEnabled"); if(pe){ pe.addEventListener("change",()=>{ node.enabled=pe.checked; if(activeTab===node.id)updateEditorStatus(); }); }
+  const pd=q("pDel"); if(pd){ pd.addEventListener("click",()=>doDelete(node.id)); }
+}
+
+/* ═══════════════════════════════════════
+   INIT
+═══════════════════════════════════════ */
+renderTree(); renderTabs(); switchTab(); renderProps();
+
+})();
+</script>
+</body>
+</html>
