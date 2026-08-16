@@ -6,12 +6,13 @@
 <title>SPLASH STUDIO</title>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 <style>
 :root{
   --bg:#0a1119;--panel:#101a24;--panel2:#0c1620;--border:#1e2c39;--border-soft:#16212c;
   --text:#e7eff5;--text-muted:#7c90a0;--accent:#33d6e0;--accent-dim:#1c7a80;--warn:#ff6b57;
   --wk:#33d6e0;--ss:#ff9e5e;--sg:#b98cff;--rs:#59e6a6;--pl:#ff6fa5;
-  --scr:#ffc24b;--gen:#7fa8ff;--mdl:#4fd1c5;--sp:#c9a15a;
+  --scr:#ffc24b;--gen:#7fa8ff;--mdl:#4fd1c5;--sp:#c9a15a;--ui:#e879f9;--glox:#8a5cf5;--hum:#ffb454;
   --toolbar-h:48px;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -25,22 +26,24 @@ input{font-family:inherit;}
 .topbar{
   height:54px;flex:0 0 auto;display:flex;align-items:center;gap:0;
   background:linear-gradient(180deg,#101c27,#0c1620);
-  border-bottom:1px solid var(--border);z-index:30;padding:0 12px;
+  border-bottom:1px solid var(--border);z-index:30;padding:0 10px;
+  overflow-x:auto; overflow-y:hidden; scrollbar-width:thin;
 }
-.logo{display:flex;align-items:center;gap:8px;padding-right:14px;border-right:1px solid var(--border);}
-.logo-text{font-weight:700;font-size:15px;letter-spacing:.5px;}
+.topbar::-webkit-scrollbar{height:5px;}
+.logo{display:flex;align-items:center;gap:7px;padding-right:10px;border-right:1px solid var(--border);flex:0 0 auto;}
+.logo-text{font-weight:700;font-size:14px;letter-spacing:.4px;white-space:nowrap;}
 .logo-text .ac{color:var(--accent);}
 
 /* toolbar groups */
-.tb-group{display:flex;align-items:center;gap:3px;padding:0 10px;border-right:1px solid var(--border);}
+.tb-group{display:flex;align-items:center;gap:2px;padding:0 7px;border-right:1px solid var(--border);flex:0 0 auto;}
 .tb-group:last-child{border-right:none;}
-.tb-label{font-size:9.5px;text-transform:uppercase;letter-spacing:.8px;color:var(--text-muted);padding:0 4px;}
+.tb-label{display:none;}
 
 .tb-btn{
-  display:flex;align-items:center;justify-content:center;gap:5px;
-  height:34px;padding:0 10px;border-radius:7px;border:1px solid transparent;
-  background:transparent;color:var(--text-muted);font-size:12px;white-space:nowrap;
-  transition:background .12s,color .12s,border-color .12s;
+  display:flex;align-items:center;justify-content:center;gap:4px;
+  height:32px;padding:0 8px;border-radius:7px;border:1px solid transparent;
+  background:transparent;color:var(--text-muted);font-size:11.5px;white-space:nowrap;
+  transition:background .12s,color .12s,border-color .12s;flex:0 0 auto;
 }
 .tb-btn:hover{background:rgba(255,255,255,.06);color:var(--text);}
 .tb-btn.active{background:rgba(51,214,224,.15);color:var(--accent);border-color:rgba(51,214,224,.35);}
@@ -49,8 +52,8 @@ input{font-family:inherit;}
 .tb-btn.play-btn.running{background:#59e6a6;color:#071a10;border-color:#59e6a6;}
 .tb-btn.save-btn{background:rgba(51,214,224,.1);color:var(--accent);border-color:rgba(51,214,224,.25);}
 .tb-btn.save-btn:hover{background:rgba(51,214,224,.2);}
-.tb-icon{font-size:15px;}
-.spacer{flex:1;}
+.tb-icon{font-size:14px;}
+.spacer{flex:1 0 16px;}
 
 /* ── MAIN ── */
 /* ---------- Main layout ---------- */
@@ -192,6 +195,54 @@ ul.tree ul{padding-left:14px;}
   font-size:11.5px;color:rgba(231,239,245,.75);text-align:center;
   background:rgba(7,13,19,.5);padding:6px 12px;border-radius:7px;pointer-events:none;
 }
+/* ── UI LAYER (on-screen interface elements) ── */
+.ui-layer{position:absolute;inset:0;pointer-events:none;z-index:20;overflow:hidden;}
+.ui-el{position:absolute;}
+.ui-el.ui-text-el{font-family:'Space Grotesk',sans-serif;text-shadow:0 1px 4px rgba(0,0,0,.7);font-weight:600;}
+.ui-el.ui-image-el{object-fit:contain;border-radius:6px;}
+
+/* ── DRAW EDITOR (paint a texture / UI image) ── */
+.draw-modal{
+  position:fixed;inset:0;z-index:300;background:rgba(4,8,12,.8);
+  display:none;align-items:center;justify-content:center;
+}
+.draw-modal.active{display:flex;}
+.draw-box{
+  background:var(--panel);border:1px solid var(--border);border-radius:14px;
+  padding:18px;display:flex;flex-direction:column;gap:12px;max-width:95vw;
+}
+.draw-head{display:flex;align-items:center;justify-content:space-between;font-size:14px;font-weight:700;}
+.draw-head button{background:transparent;border:none;color:var(--text-muted);font-size:16px;padding:2px 6px;border-radius:5px;}
+.draw-head button:hover{background:rgba(255,255,255,.08);color:var(--text);}
+.draw-tools{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
+.draw-tool{
+  padding:7px 11px;border-radius:7px;border:1px solid var(--border);
+  background:var(--panel2);color:var(--text-muted);font-size:12px;
+}
+.draw-tool:hover{background:rgba(255,255,255,.06);color:var(--text);}
+.draw-tool.active{background:rgba(51,214,224,.15);color:var(--accent);border-color:rgba(51,214,224,.4);}
+.draw-tools input[type=color]{width:36px;height:30px;border:1px solid var(--border);border-radius:6px;background:var(--panel2);padding:2px;}
+.draw-tools input[type=range]{width:90px;accent-color:var(--accent);}
+#drawCanvas{
+  background:#ffffff;border-radius:8px;cursor:crosshair;touch-action:none;
+  max-width:100%;height:auto;
+}
+.draw-actions{display:flex;gap:8px;justify-content:flex-end;}
+.draw-actions button{padding:8px 16px;border-radius:7px;border:1px solid var(--border);background:var(--panel2);color:var(--text);font-size:12.5px;}
+.draw-actions button:hover{background:rgba(255,255,255,.06);}
+#drawSave{background:var(--accent);color:#052226;border-color:var(--accent);font-weight:600;}
+#drawSave:hover{filter:brightness(1.1);}
+
+/* ── BVASDÉRKWOIN message shown in-game ── */
+.bvas-message{
+  position:absolute;left:50%;bottom:16%;transform:translateX(-50%) translateY(10px);
+  background:rgba(8,14,20,.88);border:1px solid var(--accent);color:#eafcff;
+  padding:12px 22px;border-radius:10px;font-size:17px;font-weight:600;
+  max-width:80%;text-align:center;pointer-events:none;
+  opacity:0;transition:opacity .18s ease, transform .18s ease;z-index:60;
+}
+.bvas-message.active{opacity:1;transform:translateX(-50%) translateY(0);}
+
 .play-crosshair{
   position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
   width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.75);
@@ -351,6 +402,7 @@ body.show-explorer .backdrop,body.show-properties .backdrop{display:block;}
   <div class="tb-group">
     <span class="tb-label">Caméra</span>
     <button class="tb-btn" id="cam-reset" title="Réinitialiser la caméra"><span class="tb-icon">⊙</span>Reset</button>
+    <button class="tb-btn" id="tb-import-model" title="Importer un modèle 3D (.glb/.gltf)"><span class="tb-icon">📦</span>Importer</button>
   </div>
 
   <div class="tb-group">
@@ -391,6 +443,13 @@ body.show-explorer .backdrop,body.show-properties .backdrop{display:block;}
       <div class="spots-tile" data-prop="window"><span class="icon">⬜</span><span class="label">Fenêtre</span></div>
       <div class="spots-tile" data-prop="table"><span class="icon">▭</span><span class="label">Table</span></div>
       <div class="spots-tile" data-prop="chair"><span class="icon">◱</span><span class="label">Chaise</span></div>
+      <div class="spots-tile" data-prop="tree"><span class="icon">🌳</span><span class="label">Arbre</span></div>
+      <div class="spots-tile" data-prop="pine"><span class="icon">🌲</span><span class="label">Sapin</span></div>
+      <div class="spots-tile" data-prop="bush"><span class="icon">🌿</span><span class="label">Buisson</span></div>
+      <div class="spots-tile" data-prop="rock"><span class="icon">🪨</span><span class="label">Rocher</span></div>
+      <div class="spots-tile" data-prop="lamp"><span class="icon">💡</span><span class="label">Lampadaire</span></div>
+      <div class="spots-tile" data-prop="bench"><span class="icon">🪑</span><span class="label">Banc</span></div>
+      <input type="file" id="importModelFile" accept=".glb,.gltf" style="display:none;">
     </div>
 
     <div class="output-panel" id="outputPanel">
@@ -406,17 +465,16 @@ body.show-explorer .backdrop,body.show-properties .backdrop{display:block;}
 
     <div class="viewport-wrap" id="viewportWrap">
       <div id="canvas-container"></div>
+      <div class="ui-layer" id="uiLayerEdit"></div>
 
       <!-- PLAY OVERLAY — full-screen first-person -->
       <div class="play-overlay" id="playOverlay">
         <div class="play-screen">
           <canvas id="play-canvas"></canvas>
         </div>
+        <div class="ui-layer" id="uiLayerPlay"></div>
         <div class="play-crosshair"></div>
-        <div class="play-hud">
-          <span>🎮</span>
-          <span id="play-status">Simulation en cours…</span>
-        </div>
+        <div class="bvas-message" id="bvasMessage"></div>
         <div class="play-controls">
           <button class="play-esc-btn" id="stop-btn">■ Arrêter (Échap)</button>
         </div>
@@ -456,6 +514,35 @@ body.show-explorer .backdrop,body.show-properties .backdrop{display:block;}
 
 <div class="toast" id="toast"></div>
 
+<!-- ═══ DRAW EDITOR ═══ -->
+<div class="draw-modal" id="drawModal">
+  <div class="draw-box">
+    <div class="draw-head">
+      <span id="drawTitle">🎨 Éditeur de dessin</span>
+      <button id="drawClose">✕</button>
+    </div>
+    <div class="draw-tools">
+      <button class="draw-tool active" data-tool="pen">✏️ Crayon</button>
+      <button class="draw-tool" data-tool="line">╱ Ligne</button>
+      <button class="draw-tool" data-tool="rect">▭ Carré</button>
+      <button class="draw-tool" data-tool="circle">◯ Rond</button>
+      <button class="draw-tool" data-tool="text">🔤 Texte</button>
+      <button class="draw-tool" data-tool="eraser">🧽 Gomme</button>
+      <input type="color" id="drawColor" value="#33d6e0" title="Couleur">
+      <input type="range" id="drawSize" min="1" max="40" value="6" title="Épaisseur">
+      <button class="draw-tool" id="drawFillToggle">Remplir : non</button>
+      <button class="draw-tool" id="drawImportBtn">🖼 Importer</button>
+      <input type="file" id="drawImportFile" accept="image/*" style="display:none;">
+      <button class="draw-tool" id="drawClear">🗑 Tout effacer</button>
+    </div>
+    <canvas id="drawCanvas" width="512" height="512"></canvas>
+    <div class="draw-actions">
+      <button id="drawCancel">Annuler</button>
+      <button id="drawSave">Appliquer</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (function(){
 "use strict";
@@ -467,7 +554,7 @@ let idCounter = 1;
 function uid(){ return "n"+(idCounter++); }
 
 const nodes = {};
-const ROOT_ORDER = ["workspace","scriptserver","scriptgeneral","replicatedstorage","players"];
+const ROOT_ORDER = ["workspace","scriptserver","scriptgeneral","replicatedstorage","players","ui"];
 const expandedSet = new Set(ROOT_ORDER);
 let selectedId = null;
 let openTabs = [];
@@ -483,6 +570,7 @@ mkRoot("scriptserver","ScriptServer","scripts");
 mkRoot("scriptgeneral","ScriptGeneral","scripts");
 mkRoot("replicatedstorage","ReplicatedStorage","mixed");
 mkRoot("players","Players","scripts");
+mkRoot("ui","UI","interface");
 mkRoot("spots","Spots","props");
 
 function getRootAncestor(node){
@@ -505,7 +593,44 @@ function nextPos(){
   return {x:(i%5)*6-12, y:2, z:Math.floor(i/5)*6}; // y:2 = bottom face rests exactly on the baseplate (top at y=0)
 }
 
-function starterCode(type,name){
+const LANGUAGES={
+  codavaso:  {label:"CodaVaso",      badge:"CODAVASO",     desc:"Le langage de base, simple et lisible."},
+  codavasop: {label:"CodaVaso+",     badge:"CODAVASO+",    desc:"Plus difficile mais bien plus ouvert — syntaxe C++."},
+  bvas:      {label:"Bvasdérkwoin",  badge:"BVASDÉRKWOIN", desc:"Le plus simple : une action par ligne, en français."}
+};
+
+/* ═══════════════════════════════════════
+   MOTEUR MONSTRE — tu construis toi-même le modèle et les scripts
+   (un Genvisit "mouvement" dans le modèle, un Script de coordination
+   dans ScriptServer, un Genvisit de détection dans Players). Ce
+   lecteur retrouve juste le nom du bloc déclencheur dans tes scripts
+   (motif : touch(NOM.block)) pour piloter la vraie poursuite —
+   ce n'est pas une interprétation complète de ta syntaxe inventée.
+═══════════════════════════════════════ */
+/* Retrouve le nom du bloc déclencheur pour un modèle-monstre, en lisant
+   son Genvisit + les Genvisit de Players (motif : touch(NOM.block)). */
+function parseMonsterTrigger(modelNode){
+  const codes=[];
+  modelNode.children.forEach(cid=>{ const n=nodes[cid]; if(n&&n.type==="genvisit"&&n.enabled!==false) codes.push(n.code||""); });
+  (nodes.players?nodes.players.children:[]).forEach(cid=>{ const n=nodes[cid]; if(n&&n.type==="genvisit"&&n.enabled!==false) codes.push(n.code||""); });
+  const combined=codes.join("\n");
+  let m=combined.match(/touch\(\s*([\w\-À-ÿ ]+?)\.block\s*\)/i);
+  if(!m) m=combined.match(/bloc\.([\w\-À-ÿ ]+)/i);
+  return m ? m[1].trim().toLowerCase() : null;
+}
+
+function starterCode(type,name,lang){
+  lang=lang||"codavaso";
+  const side = type==="script" ? "serveur" : "client (joueur)";
+  if(lang==="codavasop"){
+    return `// CodaVaso+ : ${name}\n// Exécuté côté ${side} — syntaxe C++\n\n#include <splash.h>\n\nvoid Demarrage() {\n    std::string message = "${name} est en ligne";\n    afficher(message);\n}\n\nvoid Boucle(float dt) {\n    // appelé à chaque image\n}\n`;
+  }
+  if(lang==="bvas"){
+    if(type!=="genvisit"){
+      return `# Bvasdérkwoin ne fonctionne QUE dans un Genvisit.\n# Ce script est un Script normal : les phrases ci-dessous seront ignorées.\n# Cree un Genvisit a la place.\n\ndire bonjour quand tu touche le bloc spike\n`;
+    }
+    return `# Bvasdérkwoin : ${name}\n# Tu ecris une phrase en francais, elle s'execute.\n#\n# ACTIONS : dire <message> | donner <n> vie | enlever <n> vie\n#           mettre la vie a <n> | mettre la vitesse a <n>\n#           accelerer de <n> | ralentir de <n> | sauter | reapparaitre\n# QUAND   : quand tu touche le bloc <nom> | quand tu touche le model <nom>\n#           quand ca commence | quand tu appuie sur <touche>\n# DUREE   : ajoute "pendant <n> sec" avant le "quand"\n\ndire bonjour quand tu touche le bloc spike\ndire au revoir pendant 4 sec quand tu touche le model zglorwuXxDd\n`;
+  }
   if(type==="script") return `-- Script Codavaso : ${name}\n-- Executé côté serveur\n\nevenement Demarrage()\n    afficher("${name} charge sur le serveur")\nfin\n`;
   return `-- Genvisit Codavaso : ${name}\n-- Executé côté client (joueur)\n\nevenement Demarrage()\n    local joueur = JoueurLocal\n    afficher(joueur.Nom .. " est en jeu")\nfin\n`;
 }
@@ -523,9 +648,9 @@ end.final
   }
   if(type==="autodoor"){
     return `if.player.view(1pixelpoint/bloc.${name})
-      bloc.${name}(x = -1pixelpoint)
+      bloc.${name}(rotation(90))
            wait(2.5)
-           bloc.${name}(x = 1pixelpoint)
+           bloc.${name}(rotation(-90))
            end
       end
 end.final
@@ -542,22 +667,25 @@ end.final
 }
 
 // ── what can be inserted where ──
-const PROP_TYPES=["door","autodoor","codedoor","window","table","chair"];
+const PROP_TYPES=["door","autodoor","codedoor","window","table","chair","tree","pine","bush","rock","lamp","bench"];
 const DOOR_TYPES=["door","autodoor","codedoor"];
 
 function allowedInserts(node){
-  if(node.type==="script"||node.type==="genvisit") return [];
-  if(["window","table","chair"].includes(node.type)) return [];
-  // blocks and doors can contain scripts
-  if(node.type==="block"||DOOR_TYPES.includes(node.type)) return ["script","genvisit"];
+  if(node.type==="script"||node.type==="genvisit"||node.type==="glox"||node.type==="skeleton"||UI_TYPES.includes(node.type)) return [];
+  if(node.type==="humanoid") return ["glox","script","genvisit","skeleton"];
+  // blocks AND every Spots prop can contain scripts, GLOX and UI
+  if(node.type==="block"||PROP_TYPES.includes(node.type)) return ["script","genvisit","glox","uitext","uiimage"];
   if(node.type==="root"||node.type==="folder"||node.type==="model"){
-    if(node.kind==="world")    return ["block","model","script","genvisit",...PROP_TYPES];
+    if(node.kind==="world")    return node.type==="model" ? ["block","model","humanoid","script","genvisit"] : ["block","model","script","genvisit"];
     if(node.kind==="scripts")  return ["script","genvisit","folder"];
-    if(node.kind==="mixed")    return ["script","genvisit","block","model","folder"];
+    if(node.kind==="mixed")    return ["script","genvisit","glox","block","model","folder"];
     if(node.kind==="props")    return PROP_TYPES.slice();
+    if(node.kind==="interface")return UI_TYPES.slice();
   }
   return [];
 }
+
+const UI_TYPES=["uitext","uiimage"];
 
 const INSERT_META={
   block:   {label:"Bloc",    glyph:"▣"},
@@ -570,10 +698,21 @@ const INSERT_META={
   codedoor:{label:"Porte à code", glyph:"🔒"},
   window:  {label:"Fenêtre", glyph:"⬜"},
   table:   {label:"Table", glyph:"▭"},
-  chair:   {label:"Chaise", glyph:"◱"}
+  chair:   {label:"Chaise", glyph:"◱"},
+  tree:    {label:"Arbre", glyph:"🌳"},
+  pine:    {label:"Sapin", glyph:"🌲"},
+  bush:    {label:"Buisson", glyph:"🌿"},
+  rock:    {label:"Rocher", glyph:"🪨"},
+  lamp:    {label:"Lampadaire", glyph:"💡"},
+  bench:   {label:"Banc", glyph:"🪑"},
+  uitext:  {label:"Texte UI", glyph:"🔤"},
+  uiimage: {label:"Image UI", glyph:"🖼"},
+  humanoid:{label:"Humanoid", glyph:"🧍"},
+  skeleton:{label:"Squelette", glyph:"•"},
+  glox:    {label:"GLOX", glyph:"👁"}
 };
 
-const VISIBLE_ROOTS=["workspace","spots"];
+const VISIBLE_ROOTS=["workspace","spots","replicatedstorage"];
 
 function addChild(parentId,type){
   const parent=nodes[parentId]; if(!parent)return null;
@@ -586,19 +725,42 @@ function addChild(parentId,type){
   if(type==="model")  node.kind="world";
   if(type==="block"){
     node.color=randomColor(); node.traverse=false; node.free=false;
-    node.texture=""; node.anim={type:"none",speed:1};
+    node.texture=""; node.textureStyle="normal"; node.anim={type:"none",speed:1};
     node.position=nextPos(); node.size={x:4,y:4,z:4}; node.rotation={x:0,y:0,z:0};
   }
   if(type==="script"||type==="genvisit"){
-    node.enabled=true; node.code=starterCode(type,name);
+    node.enabled=true; node.lang="codavaso"; node.code=starterCode(type,name,"codavaso");
+  }
+  if(type==="glox"){
+    node.enabled=true; node.code=gloxStarterCode(name);
   }
   if(PROP_TYPES.includes(type)){
-    const propColors={door:"#8a5a3a",autodoor:"#7a8a99",codedoor:"#8a5a3a",window:"#9fd6e6",table:"#a9865a",chair:"#a9865a"};
+    const propColors={door:"#8a5a3a",autodoor:"#7a8a99",codedoor:"#8a5a3a",window:"#9fd6e6",table:"#a9865a",chair:"#a9865a",tree:"#4a7c3f",pine:"#2f5d3a",bush:"#5c9450",rock:"#8a8a8a",lamp:"#5a6472",bench:"#a9865a"};
     node.color=propColors[type];
     node.position=nextPos(); node.position.y=0; // props sit at floor level (their own geometry is built above y=0)
     node.rotation={x:0,y:0,z:0};
+    node.scale=1;
+    node.texture=""; node.textureStyle="normal";
+    node.traverse=false; node.free=false;
+    node.anim={type:"none",speed:1};
     node.width = (type==="window") ? 3 : 2;
     if(type==="codedoor") node.doorCode="1234";
+  }
+  if(type==="uitext"){
+    node.content="Texte"; node.top=10; node.left=10; node.fontSize=24; node.color="#ffffff";
+  }
+  if(type==="uiimage"){
+    node.image=""; node.top=10; node.left=10; node.width=140; node.height=90;
+  }
+  if(type==="humanoid"){
+    // defaults to the center of the model it's placed in, so it starts in the right spot
+    let sx=0,sy=0,sz=0,count=0;
+    parent.children.forEach(cid=>{ const c=nodes[cid]; if(c&&c.type==="block"){ sx+=c.position.x; sy+=c.position.y; sz+=c.position.z; count++; } });
+    node.position = count>0 ? {x:sx/count,y:sy/count,z:sz/count} : {x:0,y:1.5,z:0};
+  }
+  if(type==="skeleton"){
+    const hostPos = (parent.position) || {x:0,y:1.5,z:0};
+    node.position = {x:hostPos.x, y:hostPos.y, z:hostPos.z};
   }
 
   nodes[id]=node;
@@ -611,6 +773,9 @@ function addChild(parentId,type){
     if(type==="block") spawnBlock(node, parent);
     if(type==="model") spawnGroup(node, parent);
     if(PROP_TYPES.includes(type)) spawnProp(node, parent);
+    if(UI_TYPES.includes(type)) spawnUIOnHost(node);
+    if(type==="humanoid") spawnHumanoid(node,parent);
+    if(type==="skeleton") spawnSkeletonPoint(node,parent);
   }
 
   // doors get their interaction script attached automatically
@@ -647,6 +812,42 @@ function doDelete(id){
   renderTree(); renderTabs(); switchActiveTab(); renderProps(); highlightSelected();
 }
 
+/* ── DUPLICATE (Ctrl+D) ── */
+function deepCloneNode(srcId,newParentId){
+  const src=nodes[srcId];
+  const newId=uid();
+  const copy=JSON.parse(JSON.stringify(src));
+  copy.id=newId; copy.parent=newParentId; copy.children=[];
+  nodes[newId]=copy;
+  src.children.forEach(cid=>{ copy.children.push(deepCloneNode(cid,newId)); });
+  return newId;
+}
+function spawnSubtree3D(id){
+  const node=nodes[id]; const parent=nodes[node.parent];
+  if(node.type==="block") spawnBlock(node,parent);
+  else if(node.type==="model"){
+    spawnGroup(node,parent);
+    node.children.forEach(cid=>{
+      const c=nodes[cid];
+      if(c.type==="block"||c.type==="model"||PROP_TYPES.includes(c.type)) spawnSubtree3D(cid);
+    });
+  }
+  else if(PROP_TYPES.includes(node.type)) spawnProp(node,parent);
+}
+function duplicateNode(id){
+  const src=nodes[id]; if(!src||src.type==="root")return;
+  const parentId=src.parent;
+  const newId=deepCloneNode(id,parentId);
+  nodes[parentId].children.push(newId);
+  expandedSet.add(parentId);
+  const newNode=nodes[newId];
+  if(newNode.position){ newNode.position={...newNode.position}; newNode.position.x+=2; }
+  const root=getRootAncestor(newNode);
+  if(VISIBLE_ROOTS.includes(root.id)) spawnSubtree3D(newId);
+  renderTree(); selectNode(newId);
+  showToast(`⧉ "${newNode.name}" dupliqué`);
+}
+
 /* ═══════════════════════════════════════
    THREE.JS SCENE
 ═══════════════════════════════════════ */
@@ -668,6 +869,36 @@ const dir=new THREE.DirectionalLight(0xffffff,.9); dir.position.set(30,50,20); s
 scene.add(new THREE.AmbientLight(0x335566,.35));
 scene.add(new THREE.GridHelper(80,40,0x1c3a44,0x142530));
 
+/* Procedural sky environment so "réaliste" materials (clearcoat/PBR) actually
+   show reflections — without this, physical materials look almost identical
+   to standard ones since there's nothing for them to reflect. */
+(function buildEnvironment(){
+  try{
+    const size=256;
+    const cv=document.createElement("canvas"); cv.width=size; cv.height=size;
+    const ctx=cv.getContext ? cv.getContext("2d") : null;
+    if(!ctx) return;
+    const grad=ctx.createLinearGradient(0,0,0,size);
+    grad.addColorStop(0,"#9fe3ff");
+    grad.addColorStop(.45,"#dff2f8");
+    grad.addColorStop(.5,"#e8eef0");
+    grad.addColorStop(1,"#33414c");
+    ctx.fillStyle=grad; ctx.fillRect(0,0,size,size);
+    ctx.globalAlpha=.55; ctx.fillStyle="#ffffff";
+    ctx.beginPath(); ctx.arc(size*.72,size*.22,size*.13,0,Math.PI*2); ctx.fill();
+    ctx.globalAlpha=1;
+    const tex=new THREE.CanvasTexture(cv);
+    tex.mapping=THREE.EquirectangularReflectionMapping;
+    if(THREE.PMREMGenerator){
+      const pmrem=new THREE.PMREMGenerator(renderer);
+      pmrem.compileEquirectangularShader();
+      scene.environment=pmrem.fromEquirectangular(tex).texture;
+    } else {
+      scene.environment=tex;
+    }
+  }catch(e){ /* environment reflections unavailable in this context */ }
+})();
+
 const worldGroup=new THREE.Group(); scene.add(worldGroup);
 const spotsGroup=new THREE.Group(); scene.add(spotsGroup);
 const obj3D={"workspace":worldGroup,"spots":spotsGroup};
@@ -675,10 +906,84 @@ const blockMeshes=[];
 const propMeshes=[];
 
 const textureLoader=new THREE.TextureLoader();
+const TEXTURE_STYLES={
+  // faible  = volontairement moche : facettes dures, couleurs ternes, textures pixelisées
+  // normal  = rendu standard, propre
+  // fort    = bon niveau de détail (l'ancien "réaliste")
+  // realiste= mega hyper réaliste : matériau physique (vernis), grain fin, géométrie très lisse
+  normal:  {roughness:.55, metalness:.08, tint:1,    flat:false, detail:false, pixelate:false, seg:10, physical:false},
+  faible:  {roughness:1,   metalness:0,   tint:.62,  flat:true,  detail:false, pixelate:true,  seg:5,  physical:false},
+  fort:    {roughness:.78, metalness:.06, tint:.98,  flat:false, detail:true,  pixelate:false, seg:16, physical:false, bumpScale:.06},
+  realiste:{roughness:.42, metalness:.22, tint:1,    flat:false, detail:true,  pixelate:false, seg:32, physical:true, bumpScale:.1, clearcoat:.65, clearcoatRoughness:.15, envIntensity:1.4}
+};
+
+/* Builds the right material instance for a node's current style — Physical
+   (with clearcoat) for "réaliste", Standard for everything else. Always
+   returns a fresh material so switching styles never leaves stale properties
+   from a different material class behind. */
+function buildMaterialForStyle(node){
+  const s=TEXTURE_STYLES[node.textureStyle]||TEXTURE_STYLES.normal;
+  const c=new THREE.Color(node.color);
+  if(s.tint!==1) c.multiplyScalar(s.tint);
+  const base={
+    color:c, roughness:s.roughness, metalness:s.metalness, flatShading:!!s.flat,
+    transparent:!!node.traverse, opacity:node.traverse?.35:1
+  };
+  const mat = s.physical
+    ? new THREE.MeshPhysicalMaterial({...base, clearcoat:s.clearcoat||0, clearcoatRoughness:s.clearcoatRoughness||.2, envMapIntensity:s.envIntensity||1})
+    : new THREE.MeshStandardMaterial({...base, envMapIntensity:s.envIntensity||1});
+  if(s.detail){
+    const g=getGrainTextures();
+    if(g.bump){ mat.bumpMap=g.bump; mat.bumpScale=s.bumpScale||.06; mat.roughnessMap=g.map; }
+  }
+  return mat;
+}
+
+/* procedural grain used by the "réaliste" style: gives real surface relief
+   instead of a perfectly flat plastic look */
+let _grainTex=null, _grainBump=null;
+function getGrainTextures(){
+  if(_grainTex!==null) return {map:_grainTex,bump:_grainBump};
+  const cv=document.createElement("canvas"); cv.width=cv.height=256;
+  const c=cv.getContext ? cv.getContext("2d") : null;
+  if(!c){ _grainTex=false; return {map:false,bump:false}; }
+  const img=c.createImageData(256,256);
+  for(let i=0;i<img.data.length;i+=4){
+    const n=200+Math.random()*55;
+    img.data[i]=img.data[i+1]=img.data[i+2]=n; img.data[i+3]=255;
+  }
+  c.putImageData(img,0,0);
+  // soft blotches for larger-scale variation
+  for(let k=0;k<90;k++){
+    c.globalAlpha=0.05+Math.random()*0.06;
+    c.fillStyle=Math.random()>.5?"#000":"#fff";
+    c.beginPath();
+    c.arc(Math.random()*256,Math.random()*256,6+Math.random()*26,0,Math.PI*2);
+    c.fill();
+  }
+  c.globalAlpha=1;
+  _grainTex=new THREE.CanvasTexture(cv);
+  _grainTex.wrapS=_grainTex.wrapT=THREE.RepeatWrapping;
+  _grainTex.repeat.set(3,3);
+  _grainBump=_grainTex;
+  return {map:_grainTex,bump:_grainBump};
+}
+
+function applyTextureStyle(mesh,node){
+  // rebuild the material entirely — needed since "réaliste" uses a different
+  // material class (Physical) than the others (Standard)
+  const oldMat=mesh.material;
+  mesh.material=buildMaterialForStyle(node);
+  if(oldMat) oldMat.dispose();
+  // faible : textures pixelisées facon vieux jeu (re-applied after texture (re)loads)
+}
 function applyTexture(mesh,node){
+  const s=TEXTURE_STYLES[node.textureStyle]||TEXTURE_STYLES.normal;
   if(node.texture){
     textureLoader.load(node.texture, tex=>{
       tex.colorSpace = THREE.SRGBColorSpace || tex.colorSpace;
+      tex.magFilter = s.pixelate ? THREE.NearestFilter : THREE.LinearFilter;
+      tex.minFilter = s.pixelate ? THREE.NearestFilter : THREE.LinearMipmapLinearFilter;
       mesh.material.map=tex; mesh.material.needsUpdate=true;
     });
   } else if(mesh.material.map){
@@ -687,10 +992,7 @@ function applyTexture(mesh,node){
 }
 function spawnBlock(node, parent){
   const geo=new THREE.BoxGeometry(node.size.x,node.size.y,node.size.z);
-  const mat=new THREE.MeshStandardMaterial({
-    color:node.color, roughness:.55, metalness:.08,
-    transparent:node.traverse, opacity:node.traverse?.35:1
-  });
+  const mat=buildMaterialForStyle(node);
   const mesh=new THREE.Mesh(geo,mat);
   mesh.position.set(node.position.x,node.position.y,node.position.z);
   mesh.rotation.set(
@@ -706,6 +1008,60 @@ function spawnBlock(node, parent){
   applyTexture(mesh,node);
 }
 
+/* ── UI attached to a block: rendered as a floating billboard above it ── */
+function makeUISprite(uiNode, hostNode){
+  const cv=document.createElement("canvas");
+  cv.width=512; cv.height=256;
+  const ctx=cv.getContext ? cv.getContext("2d") : null;
+  if(!ctx) return null;
+  ctx.clearRect(0,0,cv.width,cv.height);
+
+  const draw=()=>{
+    ctx.clearRect(0,0,cv.width,cv.height);
+    ctx.fillStyle="rgba(10,17,25,0.72)";
+    ctx.strokeStyle="rgba(232,121,249,0.9)"; ctx.lineWidth=6;
+    const r=22;
+    ctx.beginPath();
+    ctx.moveTo(r,3); ctx.lineTo(cv.width-r,3); ctx.quadraticCurveTo(cv.width-3,3,cv.width-3,r);
+    ctx.lineTo(cv.width-3,cv.height-r); ctx.quadraticCurveTo(cv.width-3,cv.height-3,cv.width-r,cv.height-3);
+    ctx.lineTo(r,cv.height-3); ctx.quadraticCurveTo(3,cv.height-3,3,cv.height-r);
+    ctx.lineTo(3,r); ctx.quadraticCurveTo(3,3,r,3);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle=uiNode.color||"#ffffff";
+    ctx.font=`bold ${Math.max(28,(uiNode.fontSize||24)*2.6)}px 'Space Grotesk', sans-serif`;
+    ctx.textAlign="center"; ctx.textBaseline="middle";
+    const txt=(uiNode.content||"").slice(0,40);
+    ctx.fillText(txt, cv.width/2, cv.height/2, cv.width-50);
+    if(tex) tex.needsUpdate=true;
+  };
+
+  const tex=new THREE.CanvasTexture(cv);
+  const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false}));
+  const hostH=(hostNode.size&&hostNode.size.y) || (PROP_TYPES.includes(hostNode.type)?3.4:3);
+  sprite.position.set(0,hostH/2+1.6,0);
+  sprite.scale.set(4.2,2.1,1);
+  sprite.userData.redraw=draw;
+  sprite.userData.nodeId=uiNode.id;
+  draw();
+  return sprite;
+}
+
+function spawnUIOnHost(uiNode){
+  const host=nodes[uiNode.parent];
+  if(!host)return;
+  const hostObj=obj3D[host.id];
+  if(!hostObj)return;
+  if(uiNode.type!=="uitext")return; // only text billboards are shown in 3D
+  const sprite=makeUISprite(uiNode,host);
+  if(!sprite) return;
+  hostObj.add(sprite);
+  obj3D[uiNode.id]=sprite;
+}
+
+function refreshUISprite(uiNode){
+  const sprite=obj3D[uiNode.id];
+  if(sprite && sprite.userData.redraw) sprite.userData.redraw();
+}
 
 function spawnGroup(node, parent){
   const g=new THREE.Group();
@@ -713,25 +1069,87 @@ function spawnGroup(node, parent){
   obj3D[node.id]=g;
 }
 
+/* ── Humanoid : marqueur déplaçable au centre d'un modèle, pour organiser
+   ses scripts d'animation (GLOX / Script / Genvisit / Squelette) ── */
+function spawnHumanoid(node,parent){
+  const group=new THREE.Group();
+  group.position.set(node.position.x,node.position.y,node.position.z);
+  const mat=new THREE.MeshStandardMaterial({color:0xffb454,transparent:true,opacity:.32,roughness:.6});
+  const body=new THREE.Mesh(new THREE.CylinderGeometry(.38,.42,1.1,12),mat);
+  group.add(body);
+  const head=new THREE.Mesh(new THREE.SphereGeometry(.4,12,10),mat);
+  head.position.y=.85; group.add(head);
+  const feet=new THREE.Mesh(new THREE.SphereGeometry(.4,12,10),mat);
+  feet.position.y=-.85; group.add(feet);
+  const wire=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.CylinderGeometry(.38,.42,1.1,12)), new THREE.LineBasicMaterial({color:0xffb454}));
+  group.add(wire);
+  group.userData.nodeId=node.id;
+  group.traverse(c=>{ if(c!==group) c.userData.nodeId=node.id; });
+  const p=obj3D[parent.id]||worldGroup;
+  p.add(group); obj3D[node.id]=group; propMeshes.push(group);
+}
+function spawnSkeletonPoint(node,parent){
+  const mat=new THREE.MeshStandardMaterial({color:0x33d6e0,emissive:0x0f4f52,roughness:.4});
+  const mesh=new THREE.Mesh(new THREE.SphereGeometry(.12,10,8),mat);
+  mesh.position.set(node.position.x,node.position.y,node.position.z);
+  mesh.userData.nodeId=node.id;
+  const p=obj3D[parent.id]||worldGroup;
+  p.add(mesh); obj3D[node.id]=mesh; propMeshes.push(mesh);
+}
+
 function spawnProp(node, parent){
   const group=new THREE.Group();
   group.position.set(node.position.x,node.position.y,node.position.z);
-  group.rotation.y=THREE.MathUtils.degToRad(node.rotation.y||0);
-  const mat=new THREE.MeshStandardMaterial({color:node.color, roughness:.6, metalness:.1});
+  group.rotation.set(THREE.MathUtils.degToRad(node.rotation.x||0),THREE.MathUtils.degToRad(node.rotation.y||0),THREE.MathUtils.degToRad(node.rotation.z||0));
+  const s=node.scale||1; group.scale.set(s,s,s);
+  const style=TEXTURE_STYLES[node.textureStyle]||TEXTURE_STYLES.normal;
+  const realistic = node.textureStyle==="realiste";
+  const mat=buildMaterialForStyle(node);
+  // geometry detail follows the style: faible = anguleux, réaliste = très lisse
+  const SEG = style.seg || 10;
   const w=node.width||2;
 
   if(node.type==="door"||node.type==="autodoor"||node.type==="codedoor"){
-    const leaf=new THREE.Mesh(new THREE.BoxGeometry(w,3.2,0.18),mat);
-    leaf.position.y=1.6;
-    group.add(leaf);
-    group.userData.width=w;
-    group.userData.doorState="closed";
-    group.userData.doorProgress=0;
+    // static frame around the doorway so it actually reads as a door, not a floating slab
+    const frameMat=new THREE.MeshStandardMaterial({color:new THREE.Color(node.color).multiplyScalar(.55), roughness:.7, metalness:.1});
+    const frameThick=0.22, frameDepth=0.3, doorH=3.2;
+    const topBar=new THREE.Mesh(new THREE.BoxGeometry(w+frameThick*2,frameThick,frameDepth),frameMat);
+    topBar.position.set(0,doorH+frameThick/2,0);
+    group.add(topBar);
+    [-1,1].forEach(side=>{
+      const post=new THREE.Mesh(new THREE.BoxGeometry(frameThick,doorH+frameThick,frameDepth),frameMat);
+      post.position.set(side*(w/2+frameThick/2),(doorH+frameThick)/2,0);
+      group.add(post);
+    });
+    // hinge pivot at the door's edge so it truly rotates open, not slides
+    const hinge=new THREE.Group();
+    hinge.position.x=-w/2;
+    const leaf=new THREE.Mesh(new THREE.BoxGeometry(w-0.08,doorH-0.1,0.16),mat);
+    leaf.position.set(w/2,doorH/2,0);
+    hinge.add(leaf);
+    // recessed panel detail so the leaf itself reads as a door, not a plain slab
+    const panelMat=new THREE.MeshStandardMaterial({color:new THREE.Color(node.color).multiplyScalar(.8), roughness:style.roughness, metalness:style.metalness});
+    [0.78,0.28].forEach(fy=>{
+      const panel=new THREE.Mesh(new THREE.BoxGeometry(w-0.55,doorH*0.32,0.03),panelMat);
+      panel.position.set(w/2,doorH*fy,0.1);
+      hinge.add(panel);
+    });
+    // doorknob
+    const knobMat=new THREE.MeshStandardMaterial({color:0xd8c48a,roughness:.3,metalness:.85});
+    const knob=new THREE.Mesh(new THREE.SphereGeometry(0.09,10,8),knobMat);
+    knob.position.set(w-0.28,doorH*0.5,0.14);
+    hinge.add(knob);
     if(node.type==="codedoor"){
-      const lock=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.22,0.22), new THREE.MeshStandardMaterial({color:0xff5555}));
-      lock.position.set(w/2-0.3,1.2,0.15);
+      const padMat=new THREE.MeshStandardMaterial({color:0x1a1f26,roughness:.4,metalness:.5});
+      const pad=new THREE.Mesh(new THREE.BoxGeometry(0.32,0.42,0.06),padMat);
+      pad.position.set(w+frameThick/2+0.02,1.3,0.05);
+      group.add(pad);
+      const lock=new THREE.Mesh(new THREE.BoxGeometry(0.1,0.1,0.1), new THREE.MeshStandardMaterial({color:0xff5555,emissive:0x660000}));
+      lock.position.set(w+frameThick/2+0.02,1.3,0.1);
       group.add(lock);
     }
+    group.add(hinge);
+    group.userData.width=w;
   } else if(node.type==="window"){
     const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,2.2,0.12), new THREE.MeshStandardMaterial({color:node.color,transparent:true,opacity:.4,roughness:.15,metalness:.3}));
     mesh.position.y=1.6;
@@ -749,12 +1167,83 @@ function spawnProp(node, parent){
     [[-0.38,-0.38],[0.38,-0.38],[-0.38,0.38],[0.38,0.38]].forEach(([lx,lz])=>{
       const leg=new THREE.Mesh(legGeo,mat); leg.position.set(lx,0.45,lz); group.add(leg);
     });
+  } else if(node.type==="tree"){
+    const barkMat=new THREE.MeshStandardMaterial({color:0x6b4a2f,roughness:.9});
+    const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.28,.38,3.2,SEG),barkMat);
+    trunk.position.y=1.6; group.add(trunk);
+    [[0,3.9,0,1.7],[0.7,3.3,0.3,1.15],[-0.6,3.4,-0.4,1.0]].forEach(([bx,by,bz,r])=>{
+      const blob=new THREE.Mesh(new THREE.SphereGeometry(r,SEG,Math.max(4,Math.round(SEG*0.8))),mat);
+      blob.position.set(bx,by,bz); group.add(blob);
+    });
+  } else if(node.type==="pine"){
+    const barkMat=new THREE.MeshStandardMaterial({color:0x5c3f28,roughness:.9});
+    const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.22,.3,1.6,SEG),barkMat);
+    trunk.position.y=.8; group.add(trunk);
+    [[1.9,1.6,1.5],[2.9,1.25,1.2],[3.8,0.85,0.95]].forEach(([py,r,h])=>{
+      const cone=new THREE.Mesh(new THREE.ConeGeometry(r,h*1.6,SEG),mat);
+      cone.position.y=py; group.add(cone);
+    });
+  } else if(node.type==="bush"){
+    [[0,.55,0,.75],[.55,.45,.15,.55],[-.5,.42,-.2,.5]].forEach(([bx,by,bz,r])=>{
+      const blob=new THREE.Mesh(new THREE.SphereGeometry(r,SEG,Math.max(4,Math.round(SEG*0.75))),mat);
+      blob.position.set(bx,by,bz); group.add(blob);
+    });
+  } else if(node.type==="rock"){
+    const rock=new THREE.Mesh(new THREE.DodecahedronGeometry(.85,style.detail?1:0),mat);
+    rock.position.y=.6; rock.rotation.set(.4,.7,.2); group.add(rock);
+    const small=new THREE.Mesh(new THREE.DodecahedronGeometry(.42,style.detail?1:0),mat);
+    small.position.set(.95,.3,.4); small.rotation.set(.8,.3,.5); group.add(small);
+  } else if(node.type==="lamp"){
+    const pole=new THREE.Mesh(new THREE.CylinderGeometry(.1,.14,4.2,SEG),mat);
+    pole.position.y=2.1; group.add(pole);
+    const arm=new THREE.Mesh(new THREE.BoxGeometry(.9,.12,.12),mat);
+    arm.position.set(.4,4.15,0); group.add(arm);
+    const bulb=new THREE.Mesh(new THREE.SphereGeometry(.28,SEG,Math.max(4,Math.round(SEG*0.8))),
+      new THREE.MeshStandardMaterial({color:0xffe9a8,emissive:0xffd166,emissiveIntensity:.8}));
+    bulb.position.set(.82,4.0,0); group.add(bulb);
+  } else if(node.type==="bench"){
+    if(realistic){
+      // realistic bench: slatted wooden seat + back on dark metal frame, like a real park bench
+      const metal=new THREE.MeshStandardMaterial({color:0x2f3438,roughness:.45,metalness:.75});
+      const slatGeo=new THREE.BoxGeometry(2.6,0.09,0.16);
+      [-0.27,-0.05,0.17].forEach((sz,i)=>{
+        const slat=new THREE.Mesh(slatGeo,mat);
+        slat.position.set(0,.75,sz); group.add(slat);
+      });
+      [0,1,2].forEach(i=>{
+        const bslat=new THREE.Mesh(new THREE.BoxGeometry(2.6,0.14,0.08),mat);
+        bslat.position.set(0,1.02+i*0.22,-0.33);
+        bslat.rotation.x=-0.12;
+        group.add(bslat);
+      });
+      [-1.15,1.15].forEach(lx=>{
+        const legF=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.75,0.08),metal);
+        legF.position.set(lx,0.38,0.2); group.add(legF);
+        const legB=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.75,0.08),metal);
+        legB.position.set(lx,0.38,-0.3); group.add(legB);
+        const armPost=new THREE.Mesh(new THREE.BoxGeometry(0.07,0.62,0.07),metal);
+        armPost.position.set(lx,1.06,-0.32); armPost.rotation.x=-0.12; group.add(armPost);
+        const rail=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.08,0.62),metal);
+        rail.position.set(lx,0.79,-0.05); group.add(rail);
+      });
+    } else {
+      const seat=new THREE.Mesh(new THREE.BoxGeometry(2.6,0.14,0.7),mat); seat.position.y=.75; group.add(seat);
+      const back=new THREE.Mesh(new THREE.BoxGeometry(2.6,0.6,0.12),mat); back.position.set(0,1.2,-0.3); group.add(back);
+      const legGeo=new THREE.BoxGeometry(0.14,0.75,0.6);
+      [-1.1,1.1].forEach(lx=>{ const leg=new THREE.Mesh(legGeo,mat); leg.position.set(lx,0.38,0); group.add(leg); });
+    }
   }
 
   group.userData.nodeId=node.id;
   group.traverse(c=>{ if(c!==group) c.userData.nodeId=node.id; });
   const p=obj3D[parent.id]||spotsGroup;
   p.add(group); obj3D[node.id]=group; propMeshes.push(group);
+  if(node.texture){
+    textureLoader.load(node.texture, tex=>{
+      tex.colorSpace = THREE.SRGBColorSpace || tex.colorSpace;
+      group.traverse(c=>{ if(c.isMesh && c.material && c.material.map!==undefined){ c.material.map=tex; c.material.needsUpdate=true; } });
+    });
+  }
 }
 
 function findNodeIdFromObject(obj){
@@ -778,7 +1267,7 @@ function dispose3D(id){
 (function(){
   const id=uid(); const parent=nodes.workspace;
   const node={id,name:"Baseplate",type:"block",parent:"workspace",children:[],
-    color:"#3f6f86",traverse:false,free:false,texture:"",anim:{type:"none",speed:1},position:{x:0,y:-1,z:0},size:{x:60,y:2,z:60},rotation:{x:0,y:0,z:0}};
+    color:"#3f6f86",traverse:false,free:false,texture:"",textureStyle:"normal",anim:{type:"none",speed:1},position:{x:0,y:-1,z:0},size:{x:60,y:2,z:60},rotation:{x:0,y:0,z:0}};
   nodes[id]=node; parent.children.push(id); spawnBlock(node,parent);
 })();
 
@@ -787,7 +1276,7 @@ function dispose3D(id){
   const parent=nodes.workspace;
   const blockId=uid();
   const blockNode={id:blockId,name:"SpawnPoint",type:"block",parent:"workspace",children:[],
-    color:"#59e6a6",traverse:true,free:false,texture:"",anim:{type:"none",speed:1},position:{x:0,y:2,z:0},size:{x:3,y:1,z:3},rotation:{x:0,y:0,z:0}};
+    color:"#59e6a6",traverse:true,free:false,texture:"",textureStyle:"normal",anim:{type:"none",speed:1},position:{x:0,y:.5,z:0},size:{x:3,y:1,z:3},rotation:{x:0,y:0,z:0}};
   nodes[blockId]=blockNode; parent.children.push(blockId); spawnBlock(blockNode,parent);
 
   const scriptId=uid();
@@ -836,18 +1325,21 @@ function highlightSelected(){
   scene.add(selEdge);
 }
 
-/* ── CAMERA ORBIT ── */
-const cam={r:46,theta:.8,phi:1.05,target:new THREE.Vector3(0,3,0)};
-function applyCam(){
-  camera.position.x=cam.target.x+cam.r*Math.sin(cam.phi)*Math.sin(cam.theta);
-  camera.position.y=cam.target.y+cam.r*Math.cos(cam.phi);
-  camera.position.z=cam.target.z+cam.r*Math.sin(cam.phi)*Math.cos(cam.theta);
-  camera.lookAt(cam.target);
+/* ── FREE-FLY EDIT CAMERA (true FPS-style camera, not an orbit) ── */
+camera.rotation.order="YXZ";
+let camYaw=0, camPitch=0;
+function initEditCam(){
+  camera.position.set(26,20,30);
+  camera.lookAt(0,3,0);
+  camYaw=camera.rotation.y; camPitch=camera.rotation.x;
 }
-applyCam();
+function applyEditCam(){
+  camera.rotation.set(camPitch,camYaw,0,"YXZ");
+}
+initEditCam();
 
 document.getElementById("cam-reset").addEventListener("click",()=>{
-  cam.r=46; cam.theta=.8; cam.phi=1.05; cam.target.set(0,3,0); applyCam();
+  initEditCam();
 });
 
 /* ── OUTPUT PANEL (like Roblox Studio's Output window) ── */
@@ -876,14 +1368,21 @@ spotsPanel.addEventListener("click",e=>{
   addChild("workspace", tile.dataset.prop);
   showToast(`＋ ${INSERT_META[tile.dataset.prop].label} ajouté(e) dans Workspace`);
 });
+document.getElementById("tb-import-model").addEventListener("click",()=>document.getElementById("importModelFile").click());
+document.getElementById("importModelFile").addEventListener("change",e=>{
+  const f=e.target.files[0];
+  importModelFile(f);
+  e.target.value="";
+});
 
 /* ── POINTER EVENTS on 3D canvas ── */
 const dom=renderer.domElement;
+dom.addEventListener("contextmenu",e=>e.preventDefault());
 dom.style.touchAction="none";
 let drag=false,lastX=0,lastY=0,moved=0;
 
 // gizmo drag state
-let gizmoDrag=false, gizmoAxis=null, gizmoStartMouse=new THREE.Vector2(), gizmoStartVal=0;
+let gizmoDrag=false, gizmoAxis=null, gizmoStartMouse=new THREE.Vector2(), gizmoStartVal=0, gizmoStartPos=0;
 let gizmoHelpers=[];
 
 dom.addEventListener("pointerdown",e=>{
@@ -900,9 +1399,9 @@ dom.addEventListener("pointermove",e=>{
   if(!drag)return;
   const dx=e.clientX-lastX, dy=e.clientY-lastY;
   moved+=Math.abs(dx)+Math.abs(dy);
-  cam.theta-=dx*.006;
-  cam.phi=Math.max(.15,Math.min(Math.PI-.15,cam.phi-dy*.006));
-  lastX=e.clientX; lastY=e.clientY; applyCam();
+  camYaw-=dx*.005;
+  camPitch=Math.max(-1.45,Math.min(1.45,camPitch-dy*.005));
+  lastX=e.clientX; lastY=e.clientY; applyEditCam();
 });
 dom.addEventListener("pointerup",e=>{
   if(gizmoDrag){ endGizmoDrag(); return; }
@@ -911,8 +1410,8 @@ dom.addEventListener("pointerup",e=>{
 });
 dom.addEventListener("wheel",e=>{
   e.preventDefault();
-  cam.r=Math.max(6,Math.min(180,cam.r+e.deltaY*.04));
-  applyCam();
+  const fwd=new THREE.Vector3(); camera.getWorldDirection(fwd);
+  camera.position.addScaledVector(fwd, -e.deltaY*0.03);
 },{passive:false});
 
 const ray=new THREE.Raycaster();
@@ -945,7 +1444,9 @@ function clearGizmo(){
 
 function buildGizmo(){
   clearGizmo();
-  if(!selectedId||!obj3D[selectedId]||!obj3D[selectedId].geometry||currentTool==="select")return;
+  if(!selectedId||!obj3D[selectedId]||currentTool==="select")return;
+  const node=nodes[selectedId];
+  if(!node || !node.position) return; // roots/folders/scripts have no transform to gizmo
   const mesh=obj3D[selectedId];
   gizmoGroup=new THREE.Group();
   const wp=new THREE.Vector3(); mesh.getWorldPosition(wp);
@@ -1011,8 +1512,11 @@ function startGizmoDrag(e,axis){
   gizmoStartMouse.set(e.clientX,e.clientY);
   const node=nodes[selectedId];
   if(currentTool==="move") gizmoStartVal={...node.position};
-  else if(currentTool==="scale") gizmoStartVal={...node.size};
-  else if(currentTool==="rotate") gizmoStartVal={...node.rotation};
+  else if(currentTool==="scale"){
+    if(node.type==="block"){ gizmoStartVal={...node.size}; gizmoStartPos={...node.position}; }
+    else { gizmoStartVal = node.scale||1; }
+  }
+  else if(currentTool==="rotate") gizmoStartVal={...(node.rotation||{x:0,y:0,z:0})};
   dom.setPointerCapture(e.pointerId);
 }
 
@@ -1023,23 +1527,43 @@ function updateGizmoDrag(e){
   const delta=(Math.abs(dx)>Math.abs(dy)?dx:-dy)*0.05;
   const node=nodes[selectedId];
   const mesh=obj3D[selectedId]; if(!mesh)return;
+  const isBlock = node.type==="block";
 
   if(currentTool==="move"){
     node.position={...gizmoStartVal};
     node.position[gizmoAxis]+=delta*1.2;
     mesh.position.set(node.position.x,node.position.y,node.position.z);
   } else if(currentTool==="scale"){
-    node.size={...gizmoStartVal};
-    node.size[gizmoAxis]=Math.max(.3,gizmoStartVal[gizmoAxis]+delta);
-    mesh.geometry.dispose();
-    mesh.geometry=new THREE.BoxGeometry(node.size.x,node.size.y,node.size.z);
+    if(isBlock){
+      // Roblox-style: growing from the dragged handle keeps the OPPOSITE face
+      // fixed in place — the block's center shifts by half the size change.
+      const oldSize=gizmoStartVal[gizmoAxis];
+      const newSize=Math.max(.3,oldSize+delta);
+      const sizeDelta=newSize-oldSize;
+      node.size={...gizmoStartVal}; node.size[gizmoAxis]=newSize;
+      node.position={...gizmoStartPos}; node.position[gizmoAxis]=gizmoStartPos[gizmoAxis]+sizeDelta/2;
+      mesh.geometry.dispose();
+      mesh.geometry=new THREE.BoxGeometry(node.size.x,node.size.y,node.size.z);
+      mesh.position.set(node.position.x,node.position.y,node.position.z);
+    } else {
+      // props / imported models: uniform scale (they're not raw box geometry)
+      const oldScale = typeof gizmoStartVal==="number" ? gizmoStartVal : 1;
+      const newScale = Math.max(.1, oldScale+delta*0.15);
+      node.scale=newScale;
+      mesh.scale.set(newScale,newScale,newScale);
+    }
   } else if(currentTool==="rotate"){
+    // Roblox-style rotate: 5° steps, with a firm stop every 45°
+    let raw=gizmoStartVal[gizmoAxis]+delta*30;
+    let snapped=Math.round(raw/5)*5;
+    const nearest45=Math.round(snapped/45)*45;
+    if(Math.abs(snapped-nearest45)<=3) snapped=nearest45;
     node.rotation={...gizmoStartVal};
-    node.rotation[gizmoAxis]=gizmoStartVal[gizmoAxis]+delta*30;
+    node.rotation[gizmoAxis]=snapped;
     mesh.rotation.set(
-      THREE.MathUtils.degToRad(node.rotation.x),
-      THREE.MathUtils.degToRad(node.rotation.y),
-      THREE.MathUtils.degToRad(node.rotation.z)
+      THREE.MathUtils.degToRad(node.rotation.x||0),
+      THREE.MathUtils.degToRad(node.rotation.y||0),
+      THREE.MathUtils.degToRad(node.rotation.z||0)
     );
   }
   const wp=new THREE.Vector3(); mesh.getWorldPosition(wp);
@@ -1076,6 +1600,12 @@ document.addEventListener("keydown",e=>{
       doDelete(selectedId);
     }
   }
+  if(e.ctrlKey && e.key.toLowerCase()==="d"){
+    e.preventDefault();
+    if(selectedId && nodes[selectedId] && nodes[selectedId].type!=="root"){
+      duplicateNode(selectedId);
+    }
+  }
 });
 document.addEventListener("keyup",e=>{ delete editKeys[e.key.toLowerCase()]; });
 
@@ -1093,23 +1623,17 @@ function animate(){
   if(!isPlaying && activeTab==="viewport"){
     const edt=Math.min(editClock.getDelta(),.08);
     const speed=20;
-    // full 3D look direction (from camera toward the orbit target), pitch included
-    const look=new THREE.Vector3(
-      -Math.sin(cam.phi)*Math.sin(cam.theta),
-      -Math.cos(cam.phi),
-      -Math.sin(cam.phi)*Math.cos(cam.theta)
-    );
-    const right=new THREE.Vector3(Math.cos(cam.theta),0,-Math.sin(cam.theta));
+    const look=new THREE.Vector3(); camera.getWorldDirection(look); // full 3D, pitch included
+    const right=new THREE.Vector3(1,0,0).applyQuaternion(camera.quaternion); right.y=0;
+    if(right.lengthSq()>0.0001) right.normalize();
     let mv=new THREE.Vector3();
     if(editKeys["z"]) mv.add(look);
     if(editKeys["s"]) mv.sub(look);
     if(editKeys["q"]) mv.sub(right);
     if(editKeys["d"]) mv.add(right);
-    let moved=false;
-    if(mv.lengthSq()>0){ mv.normalize().multiplyScalar(speed*edt); cam.target.add(mv); moved=true; }
-    if(editKeys["e"]){ cam.target.y+=speed*edt; moved=true; }
-    if(editKeys["a"]){ cam.target.y-=speed*edt; moved=true; }
-    if(moved) applyCam();
+    if(mv.lengthSq()>0){ mv.normalize().multiplyScalar(speed*edt); camera.position.add(mv); }
+    if(editKeys["e"]){ camera.position.y+=speed*edt; }
+    if(editKeys["a"]){ camera.position.y-=speed*edt; }
   } else {
     editClock.getDelta(); // avoid a large delta jump when navigation resumes
   }
@@ -1134,6 +1658,199 @@ function collectEnabledCode(rootIds){
     });
   });
   return code;
+}
+
+/* ═══════════════════════════════════════
+   BVASDÉRKWOIN — vrai interpréteur
+   Tu écris une phrase en français, elle s'exécute.
+   Exemple :
+     dire bonjour quand tu touche le bloc spike
+     dire au revoir pendant 4 sec quand tu touche le model zglorwuXxDd
+   Ne fonctionne QUE dans un Genvisit (côté joueur).
+═══════════════════════════════════════ */
+function collectBvasRules(){
+  const rules=[];
+  const warnings=[];
+  Object.values(nodes).forEach(n=>{
+    if(!n || (n.type!=="script" && n.type!=="genvisit")) return;
+    if(n.enabled===false) return;
+    if((n.lang||"codavaso")!=="bvas") return;
+
+    if(n.type!=="genvisit"){
+      warnings.push(`⚠ "${n.name}" est en Bvasdérkwoin mais c'est un Script : ce langage ne marche que dans un Genvisit.`);
+      return;
+    }
+
+    (n.code||"").split("\n").forEach((rawLine,i)=>{
+      const line=rawLine.trim();
+      if(!line || line.startsWith("#")) return;
+
+      // ── quand … (déclencheur commun à toutes les phrases) ──
+      // "quand tu touche le bloc X" / "quand ca commence" / "quand tu appuie sur X"
+      const TOUCH = /\s+quand\s+tu\s+touche\s+(?:le\s+|la\s+|l'\s*)?(bloc|block|model|mod[eè]le)\s+(.+?)\s*$/i;
+      const START = /\s+quand\s+(?:ca|ça|le\s+jeu)\s+commence\s*$|\s+au\s+d[ée]but\s*$/i;
+      const PRESS = /\s+quand\s+tu\s+appuie[s]?\s+sur\s+(?:la\s+touche\s+)?([A-Za-z0-9]+)\s*$/i;
+
+      function trigger(rest){
+        let m;
+        if((m=rest.match(TOUCH)))
+          return {trigger:"touch", kind:/^b/i.test(m[1])?"bloc":"model", name:m[2].trim().toLowerCase(), head:rest.replace(TOUCH,"")};
+        if((m=rest.match(START)))
+          return {trigger:"start", head:rest.replace(START,"")};
+        if((m=rest.match(PRESS)))
+          return {trigger:"press", key:m[1].toLowerCase(), head:rest.replace(PRESS,"")};
+        return null;
+      }
+
+      const t=trigger(line);
+      if(!t){
+        warnings.push(`⚠ ${n.name}, ligne ${i+1} : je ne comprends pas quand ça doit se produire → "${line}"`);
+        return;
+      }
+      let head=t.head.trim();
+
+      // durée optionnelle : "pendant 4 sec"
+      let duration=3;
+      const dur=head.match(/\s+pendant\s+([\d.,]+)\s*sec\w*\s*$/i);
+      if(dur){ duration=parseFloat(dur[1].replace(",",".")); head=head.replace(dur[0],"").trim(); }
+
+      let m;
+      // dire <message>
+      if((m=head.match(/^dire\s+(.+)$/i))){
+        rules.push({...t, action:"say", message:m[1].trim().replace(/^["']|["']$/g,""), duration, source:n.name});
+      }
+      // donner/ajouter <n> vie   |   enlever/retirer <n> vie
+      else if((m=head.match(/^(donner|ajouter|gagner)\s+([\d.]+)\s*(?:de\s+)?vies?$/i))){
+        rules.push({...t, action:"life", op:"add", value:parseFloat(m[2]), source:n.name});
+      }
+      else if((m=head.match(/^(enlever|retirer|perdre)\s+([\d.]+)\s*(?:de\s+)?vies?$/i))){
+        rules.push({...t, action:"life", op:"add", value:-parseFloat(m[2]), source:n.name});
+      }
+      // mettre la vie a <n>
+      else if((m=head.match(/^mettre\s+(?:la\s+)?vie\s+[àa]\s+([\d.]+)$/i))){
+        rules.push({...t, action:"life", op:"set", value:parseFloat(m[1]), source:n.name});
+      }
+      // mettre la vitesse a <n>
+      else if((m=head.match(/^mettre\s+(?:la\s+)?vitesse\s+[àa]\s+([\d.]+)$/i))){
+        rules.push({...t, action:"speed", op:"set", value:parseFloat(m[1]), source:n.name});
+      }
+      // accelerer/ralentir de <n>
+      else if((m=head.match(/^(acc[ée]l[ée]rer|ralentir)\s+de\s+([\d.]+)$/i))){
+        const v=parseFloat(m[2]);
+        rules.push({...t, action:"speed", op:"add", value:/^acc/i.test(m[1])?v:-v, source:n.name});
+      }
+      // sauter
+      else if(/^sauter$/i.test(head)){
+        rules.push({...t, action:"jump", source:n.name});
+      }
+      // reapparaitre / teleporter au spawnpoint
+      else if(/^(r[ée]apparaitre|r[ée]appara[îi]tre|recommencer|t[ée]l[ée]porter\s+au\s+spawnpoint|retour\s+au\s+spawnpoint)$/i.test(head)){
+        rules.push({...t, action:"respawn", source:n.name});
+      }
+      else {
+        warnings.push(`⚠ ${n.name}, ligne ${i+1} : action inconnue → "${head}"`);
+      }
+    });
+  });
+  return {rules,warnings};
+}
+
+/* ═══════════════════════════════════════
+   CODAVASO — lecture réelle des scripts de porte
+   Ce que tu écris dans le script pilote vraiment la porte :
+     if.key(e).touch(bloc.Porte1)   → la touche qui ouvre
+     bloc.Porte1(rotation(90))      → l'angle d'ouverture
+     wait(5)                        → le délai avant fermeture
+     if.code(2345)                  → le code à saisir
+═══════════════════════════════════════ */
+/* ═══════════════════════════════════════
+   GLOX — objet visible en édition, caché en Test
+   jusqu'à ce qu'une action le révèle. Placé typiquement
+   dans ReplicatedStorage (ou sur n'importe quel bloc/modèle).
+   Langage inventé pour ce type de script uniquement :
+     show.when.touch(bloc.NOM)   → apparaît si on touche ce bloc
+     show.when.touch(model.NOM)  → apparaît si on touche ce modèle
+     show.when.key(e)            → apparaît en appuyant sur la touche
+     hide.after(5)               → optionnel : se recache après N sec
+═══════════════════════════════════════ */
+function gloxStarterCode(name){
+  return `# GLOX : ${name}\n# Objet visible dans l'éditeur, invisible en mode Test\n# jusqu'à ce que l'action ci-dessous se produise.\n#\n# show.when.touch(bloc.NOM)   -> apparait si on touche ce bloc\n# show.when.touch(model.NOM)  -> apparait si on touche ce modele\n# show.when.key(e)            -> apparait en appuyant sur la touche\n# hide.after(5)               -> optionnel : se recache apres 5 sec\n\nshow.when.key(e)\n`;
+}
+function parseGloxScript(hostNode){
+  const res={hasGlox:false, showTrigger:null, kind:null, name:null, key:null, hideAfter:null};
+  const child=(hostNode.children||[]).map(cid=>nodes[cid]).find(n=>n && n.type==="glox" && n.enabled!==false);
+  if(!child) return res;
+  res.hasGlox=true;
+  const code=child.code||"";
+  const t=code.match(/show\.when\.touch\(\s*(bloc|block|model)\.([^)]+?)\s*\)/i);
+  if(t){ res.showTrigger="touch"; res.kind=/^b/i.test(t[1])?"bloc":"model"; res.name=t[2].trim().toLowerCase(); }
+  const k=code.match(/show\.when\.key\(\s*([A-Za-z0-9]+)\s*\)/i);
+  if(k && !res.showTrigger){ res.showTrigger="key"; res.key=k[1].toLowerCase(); }
+  const h=code.match(/hide\.after\(\s*([\d.]+)\s*\)/i);
+  if(h) res.hideAfter=parseFloat(h[1]);
+  return res;
+}
+
+function parseDoorScript(doorNode){
+  const res={openAngle:90, waitTime:null, key:"e", code:null, found:false};
+  const child=(doorNode.children||[])
+    .map(cid=>nodes[cid])
+    .find(n=>n && (n.type==="script"||n.type==="genvisit") && n.enabled!==false && (n.lang||"codavaso")==="codavaso");
+  if(!child || !child.code) return res;
+  const code=child.code;
+  res.found=true;
+
+  const rot=code.match(/rotation\s*\(\s*(-?[\d.]+)\s*\)/);
+  if(rot){
+    const a=Math.abs(parseFloat(rot[1]));
+    if(!isNaN(a)) res.openAngle=Math.max(0,Math.min(180,a));
+  }
+  const w=code.match(/wait\s*\(\s*([\d.]+)\s*\)/);
+  if(w){ const t=parseFloat(w[1]); if(!isNaN(t)) res.waitTime=t; }
+
+  const k=code.match(/if\.key\s*\(\s*([A-Za-z0-9]+)\s*\)/);
+  if(k) res.key=k[1].toLowerCase();
+
+  const c=code.match(/if\.code\s*\(\s*([^)]+?)\s*\)/);
+  if(c) res.code=c[1].trim();
+
+  return res;
+}
+
+function runBvasAction(r,ctx){
+  if(r.action==="say"){
+    showBvasMessage(r.message,r.duration);
+    logOutput(`Bvasdérkwoin → dire "${r.message}" (${r.duration}s)`);
+  } else if(r.action==="life"){
+    if(playStats.life===null) playStats.life=playStats.maxLife=10;
+    playStats.life = r.op==="set" ? r.value : playStats.life+r.value;
+    logOutput(`Bvasdérkwoin → vie = ${playStats.life}`);
+  } else if(r.action==="speed"){
+    playStats.speed = r.op==="set" ? r.value : (playStats.speed||6)+r.value;
+    playStats.speed = Math.max(1,playStats.speed);
+    logOutput(`Bvasdérkwoin → vitesse = ${playStats.speed}`);
+  } else if(r.action==="jump"){
+    if(ctx && ctx.jump) ctx.jump();
+    logOutput("Bvasdérkwoin → sauter");
+  } else if(r.action==="respawn"){
+    if(ctx && ctx.respawn) ctx.respawn();
+    logOutput("Bvasdérkwoin → réapparaître");
+  }
+}
+
+let bvasMessageTimer=null;
+function showBvasMessage(text,seconds){
+  const el=document.getElementById("bvasMessage");
+  if(!el)return;
+  el.textContent=text;
+  el.classList.add("active");
+  clearTimeout(bvasMessageTimer);
+  bvasMessageTimer=setTimeout(()=>el.classList.remove("active"), Math.max(0.2,seconds)*1000);
+}
+function hideBvasMessage(){
+  const el=document.getElementById("bvasMessage");
+  if(el) el.classList.remove("active");
+  clearTimeout(bvasMessageTimer);
 }
 
 function parseKeyBindings(code){
@@ -1180,7 +1897,8 @@ function parseTouchEffects(code){
 ═══════════════════════════════════════ */
 const playOverlay=document.getElementById("playOverlay");
 const playCanvas=document.getElementById("play-canvas");
-const playStatus=document.getElementById("play-status");
+playCanvas.addEventListener("contextmenu",e=>e.preventDefault());
+const playStatus={textContent:""}; // HUD removed — kept as a harmless sink so status writes don't crash
 const playBtn=document.getElementById("play-btn");
 const stopBtn=document.getElementById("stop-btn");
 
@@ -1192,6 +1910,10 @@ let playStats={life:null,maxLife:null,speed:6};
 let playTouchEffects=[];
 let playTouchState=new Map();
 let playSpawnPos=new THREE.Vector3(0,5,0);
+let codeEntryDoor=null;
+let bvasRules=[];
+let bvasStartPending=false;
+let bvasPressWasHeld={};
 let statusThrottle=0;
 
 function findSpawnPosition(){
@@ -1204,10 +1926,50 @@ function findSpawnPosition(){
   return new THREE.Vector3(0,5,0);
 }
 
+/* ── CODE-ENTRY overlay wiring (coded doors) ── */
+function openCodeEntry(d){
+  codeEntryDoor=d;
+  document.getElementById("codeEntryTitle").textContent=`Code pour "${d.node.name}"`;
+  const input=document.getElementById("codeEntryInput");
+  input.value="";
+  document.getElementById("codeEntryError").textContent="";
+  document.getElementById("codeEntry").classList.add("active");
+  if(document.exitPointerLock) document.exitPointerLock();
+  setTimeout(()=>input.focus(),0);
+}
+function closeCodeEntry(){
+  codeEntryDoor=null;
+  document.getElementById("codeEntry").classList.remove("active");
+}
+function submitCodeEntry(){
+  if(!codeEntryDoor)return;
+  const d=codeEntryDoor;
+  const input=document.getElementById("codeEntryInput");
+  const entered=input.value.trim();
+  if(entered===String(d.code)){
+    d.unlocked=true; d.state="open";
+    logOutput(`🔓 ${d.node.name} déverrouillée`);
+    closeCodeEntry();
+  } else {
+    document.getElementById("codeEntryError").textContent="Code incorrect, réessaie.";
+    logOutput(`🔒 Mauvais code pour "${d.node.name}"`,"error");
+    input.value=""; input.focus();
+  }
+}
+document.getElementById("codeEntrySubmit").addEventListener("click",submitCodeEntry);
+document.getElementById("codeEntryCancel").addEventListener("click",closeCodeEntry);
+document.getElementById("codeEntryInput").addEventListener("keydown",e=>{
+  e.stopPropagation();
+  if(e.key==="Enter") submitCodeEntry();
+  if(e.key==="Escape") closeCodeEntry();
+});
+document.getElementById("codeEntryInput").addEventListener("keyup",e=>e.stopPropagation());
+
 function startPlay(){
   isPlaying=true;
   playBtn.classList.add("running"); playBtn.innerHTML='<span class="tb-icon">■</span>Stop';
   playOverlay.classList.add("active");
+  renderUILayer(document.getElementById("uiLayerPlay"));
   logOutput("▶ Test lancé");
 
   // ── read scripts (best-effort Codavaso reader) ──
@@ -1220,6 +1982,22 @@ function startPlay(){
   playTouchEffects = parseTouchEffects(allCode);
   playTouchState = new Map();
   playSpawnPos = findSpawnPosition();
+
+  // Bvasdérkwoin : phrases françaises exécutables (Genvisit uniquement)
+  const bvas = collectBvasRules();
+  bvasRules = bvas.rules;
+  hideBvasMessage();
+  bvas.warnings.forEach(w=>logOutput(w,"warn"));
+  if(bvasRules.length) logOutput(`Bvasdérkwoin : ${bvasRules.length} phrase(s) active(s)`);
+  // check that "quand tu touche" targets actually exist, otherwise the phrase can never fire
+  const _bvasBlockNames=new Set(blockMeshes.map(m=>{const n=nodes[m.userData.nodeId];return n?n.name.toLowerCase():"";}));
+  const _bvasModelNames=new Set(Object.values(nodes).filter(n=>n.type==="model"&&getRootAncestor(n).id==="workspace").map(n=>n.name.toLowerCase()));
+  bvasRules.filter(r=>r.trigger==="touch").forEach(r=>{
+    const exists = r.kind==="bloc" ? _bvasBlockNames.has(r.name) : _bvasModelNames.has(r.name);
+    if(!exists) logOutput(`⚠ Bvasdérkwoin (${r.source}) : aucun ${r.kind==="bloc"?"bloc":"modèle"} nommé "${r.name}" trouvé dans Workspace — cette phrase ne se déclenchera jamais.`,"warn");
+  });
+  bvasStartPending = bvasRules.some(r=>r.trigger==="start");
+  bvasPressWasHeld = {};
   logOutput(`player.apparation(bloc.spawnpoint) → apparition à (${playSpawnPos.x.toFixed(1)}, ${playSpawnPos.y.toFixed(1)}, ${playSpawnPos.z.toFixed(1)})`);
   if(playStats.life!==null) logOutput(`player.life = ${playStats.life}`);
   logOutput(`player.speed = ${playStats.speed} · touches : ${playControls.forward.toUpperCase()}/${playControls.left.toUpperCase()}/${playControls.back.toUpperCase()}/${playControls.right.toUpperCase()}`);
@@ -1238,6 +2016,8 @@ function startPlay(){
   const solidBlocks=[];
   const freeBlocks=[];
   const animBlocks=[];
+  const gloxItems=[];
+  const cloneByNodeId={};
   blockMeshes.forEach(m=>{
     const srcNode = nodes[m.userData.nodeId];
     if(!srcNode) return;
@@ -1261,24 +2041,80 @@ function startPlay(){
     cm.userData.vel = {x:0,y:0,z:0};
     cm.userData.anim = srcNode.anim ? {...srcNode.anim} : {type:"none",speed:1};
     playScene.add(cm);
-    if(!srcNode.traverse && !srcNode.free) solidBlocks.push(cm);
-    if(srcNode.free) freeBlocks.push(cm);
+    cloneByNodeId[srcNode.id]=cm;
+
+    const glox=parseGloxScript(srcNode);
+    if(glox.hasGlox){
+      cm.visible=false;
+      gloxItems.push({mesh:cm, hostNode:srcNode, cfg:glox, revealedAt:null, keyWasHeld:false});
+      logOutput(`👁 ${srcNode.name} : caché en Test (GLOX)`);
+    } else {
+      if(!srcNode.traverse && !srcNode.free) solidBlocks.push(cm);
+      if(srcNode.free) freeBlocks.push(cm);
+    }
     if(srcNode.anim && srcNode.anim.type!=="none") animBlocks.push(cm);
+  });
+
+  // ── Monstres : modèles avec un Genvisit "mouvement" à l'intérieur ──
+  const monsters=[];
+  Object.values(nodes).forEach(n=>{
+    if(n.type!=="model") return;
+    if(getRootAncestor(n).id!=="workspace") return;
+    const hasGenvisit=n.children.some(cid=>nodes[cid]&&nodes[cid].type==="genvisit");
+    if(!hasGenvisit) return;
+    const triggerName=parseMonsterTrigger(n);
+    if(!triggerName){ logOutput(`⚠ Monstre "${n.name}" : aucun bloc déclencheur trouvé dans ses scripts.`,"warn"); return; }
+    const mGroup=new THREE.Group(); playScene.add(mGroup);
+    let sx=0,sz=0,count=0;
+    n.children.forEach(cid=>{
+      const c=nodes[cid];
+      if(!c || c.type!=="block") return;
+      const clone=cloneByNodeId[cid];
+      if(!clone) return;
+      if(clone.parent) clone.parent.remove(clone);
+      mGroup.add(clone);
+      sx+=c.position.x; sz+=c.position.z; count++;
+    });
+    if(count===0) return;
+    monsters.push({
+      group:mGroup, node:n, triggerName,
+      center:{x:sx/count, z:sz/count},
+      radius:12, speed:5, active:false
+    });
+    logOutput(`👹 ${n.name} : endormi, se réveille au contact de "${triggerName}"`);
   });
 
   // clone Spots props (doors/windows/tables/chairs)
   const doorProps=[];
   propMeshes.forEach(g=>{
     const srcNode=nodes[g.userData.nodeId]; if(!srcNode) return;
+    if(srcNode.type==="humanoid"||srcNode.type==="skeleton") return; // editor-only helper markers
     const clone=g.clone(true);
     clone.position.copy(g.position); clone.rotation.copy(g.rotation);
     playScene.add(clone);
+
+    const glox=parseGloxScript(srcNode);
+    if(glox.hasGlox){
+      clone.visible=false;
+      gloxItems.push({mesh:clone, hostNode:srcNode, cfg:glox, revealedAt:null, keyWasHeld:false});
+      logOutput(`👁 ${srcNode.name} : caché en Test (GLOX)`);
+    }
     if(srcNode.type==="door"||srcNode.type==="autodoor"||srcNode.type==="codedoor"){
+      const cfg=parseDoorScript(srcNode);
+      const defaultWait = srcNode.type==="autodoor" ? 2.5 : 5;
       doorProps.push({
-        group:clone, node:srcNode,
+        group:clone, hinge:clone.children[0], node:srcNode,
         basePos:{x:srcNode.position.x,y:srcNode.position.y,z:srcNode.position.z},
-        state:"closed", progress:0, unlocked:false, wasNear:false
+        state:"closed", progress:0, unlocked:false, wasNear:false,
+        openAngle:(cfg.openAngle*Math.PI/180),
+        waitTime:(cfg.waitTime!==null?cfg.waitTime:defaultWait),
+        key:cfg.key||"e",
+        code:(cfg.code!==null?cfg.code:(srcNode.doorCode||"1234")),
+        closeAt:null
       });
+      const last=doorProps[doorProps.length-1];
+      logOutput(`🚪 ${srcNode.name} → touche "${last.key.toUpperCase()}", angle ${Math.round(cfg.openAngle)}°, wait ${last.waitTime}s`
+        + (srcNode.type==="codedoor"?`, code ${last.code}`:""));
     }
   });
 
@@ -1387,16 +2223,82 @@ function startPlay(){
     return best===-Infinity ? -20 : best;
   }
 
+  function checkMonsters(player,dt){
+    monsters.forEach(mo=>{
+      if(!mo.active){
+        const trig=playScene.children.find(c=>c.userData && c.userData.blockName===mo.triggerName);
+        if(trig && trig.userData.size){
+          const hx=(trig.userData.size.x/2)+PLAYER_R, hy=(trig.userData.size.y/2)+PLAYER_H/2+0.15, hz=(trig.userData.size.z/2)+PLAYER_R;
+          const overlap = Math.abs(player.position.x-trig.userData.pos.x)<hx &&
+                          Math.abs(player.position.y-trig.userData.pos.y)<hy &&
+                          Math.abs(player.position.z-trig.userData.pos.z)<hz;
+          if(overlap){ mo.active=true; logOutput(`👹 ${mo.node.name} : réveillé, il te poursuit !`,"warn"); }
+        }
+      }
+      if(mo.active){
+        const dx=player.position.x-mo.center.x, dz=player.position.z-mo.center.z;
+        const dist=Math.hypot(dx,dz);
+        if(dist<=mo.radius && dist>0.4){
+          const step=mo.speed*dt;
+          const nx=dx/dist, nz=dz/dist;
+          mo.group.position.x+=nx*step; mo.group.position.z+=nz*step;
+          mo.center.x+=nx*step; mo.center.z+=nz*step;
+        }
+      }
+    });
+  }
+
+  function checkGlox(player,now){
+    gloxItems.forEach(g=>{
+      if(!g.mesh.visible){
+        if(g.cfg.showTrigger==="key"){
+          const held=!!playKeys[g.cfg.key];
+          if(held && !g.keyWasHeld){
+            g.mesh.visible=true; g.revealedAt=now;
+            logOutput(`👁 GLOX → "${g.hostNode.name}" révélé (touche ${g.cfg.key.toUpperCase()})`);
+          }
+          g.keyWasHeld=held;
+        } else if(g.cfg.showTrigger==="touch"){
+          playScene.children.some(c=>{
+            if(!c.userData || !c.userData.size) return false;
+            const match=(g.cfg.kind==="bloc" && c.userData.blockName===g.cfg.name) ||
+                        (g.cfg.kind==="model" && c.userData.modelName===g.cfg.name);
+            if(!match) return false;
+            const hx=(c.userData.size.x/2)+PLAYER_R, hy=(c.userData.size.y/2)+PLAYER_H/2+0.15, hz=(c.userData.size.z/2)+PLAYER_R;
+            const overlap = Math.abs(player.position.x-c.userData.pos.x)<hx &&
+                            Math.abs(player.position.y-c.userData.pos.y)<hy &&
+                            Math.abs(player.position.z-c.userData.pos.z)<hz;
+            if(overlap){
+              g.mesh.visible=true; g.revealedAt=now;
+              logOutput(`👁 GLOX → "${g.hostNode.name}" révélé (contact avec ${g.cfg.kind}.${g.cfg.name})`);
+            }
+            return overlap;
+          });
+        }
+      } else if(g.cfg.hideAfter!==null && g.revealedAt!==null && now-g.revealedAt>=g.cfg.hideAfter){
+        g.mesh.visible=false; g.revealedAt=null;
+        logOutput(`👁 GLOX → "${g.hostNode.name}" caché à nouveau`);
+      }
+    });
+  }
+
   function checkTouch(player){
     playScene.children.forEach(c=>{
       if(!c.userData || (!c.userData.blockName && !c.userData.modelName)) return;
-      const hx=(c.userData.size.x/2)+PLAYER_R, hy=(c.userData.size.y/2)+PLAYER_H/2, hz=(c.userData.size.z/2)+PLAYER_R;
+      const hx=(c.userData.size.x/2)+PLAYER_R, hy=(c.userData.size.y/2)+PLAYER_H/2+0.15, hz=(c.userData.size.z/2)+PLAYER_R;
       const overlapping =
         Math.abs(player.position.x-c.userData.pos.x)<hx &&
         Math.abs((player.position.y)-c.userData.pos.y)<hy &&
         Math.abs(player.position.z-c.userData.pos.z)<hz;
       const wasTouching = playTouchState.get(c) || false;
       if(overlapping && !wasTouching){
+        // Bvasdérkwoin rules
+        bvasRules.forEach(r=>{
+          if(r.trigger!=="touch") return;
+          const hit = (r.kind==="bloc"  && c.userData.blockName===r.name) ||
+                      (r.kind==="model" && c.userData.modelName===r.name);
+          if(hit) runBvasAction(r, playScene.userData.bvasCtx);
+        });
         playTouchEffects.forEach(fx=>{
           const nameMatch = (fx.kind==="bloc" && c.userData.blockName===fx.name) ||
                              (fx.kind==="model" && c.userData.modelName===fx.name);
@@ -1432,6 +2334,13 @@ function startPlay(){
     const player=playScene.userData.player;
     const speed=playStats.speed||6;
 
+    if(codeEntryDoor){
+      pendingJump=false; pendingInteract=false;
+      playCamera.position.set(player.position.x, player.position.y + EYE_HEIGHT, player.position.z);
+      playRenderer.render(playScene,playCamera);
+      return;
+    }
+
     const fwd=new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw)).normalize();
     const right=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw)).normalize();
     let mv=new THREE.Vector3();
@@ -1452,6 +2361,8 @@ function startPlay(){
     player.position.y = newY;
 
     checkTouch(player);
+    checkGlox(player, playTime);
+    checkMonsters(player, dt);
 
     // "libre" (free) blocks: pushed away when the player walks into them
     freeBlocks.forEach(b=>{
@@ -1478,33 +2389,61 @@ function startPlay(){
     });
 
     // Spots doors: auto-open by proximity, manual open with E, coded doors need a code
+    // Bvasdérkwoin : "quand ca commence"
+    if(bvasStartPending){
+      bvasStartPending=false;
+      bvasRules.filter(r=>r.trigger==="start").forEach(r=>runBvasAction(r, playScene.userData.bvasCtx));
+    }
+    // Bvasdérkwoin : "quand tu appuie sur X"
+    bvasRules.filter(r=>r.trigger==="press").forEach(r=>{
+      const held=!!playKeys[r.key];
+      if(held && !bvasPressWasHeld[r.key+r.action+(r.message||"")]) runBvasAction(r, playScene.userData.bvasCtx);
+      bvasPressWasHeld[r.key+r.action+(r.message||"")]=held;
+    });
+
     const INTERACT_RANGE=3.2;
     doorProps.forEach(d=>{
       const dist=Math.hypot(player.position.x-d.basePos.x, player.position.z-d.basePos.z);
       const near = dist<INTERACT_RANGE;
+
       if(d.node.type==="autodoor"){
-        const wantOpen = near;
-        if(wantOpen !== (d.state==="open")){
-          d.state = wantOpen?"open":"closed";
-          logOutput(`🚪 ${d.node.name} : ${d.state==="open"?"ouverte":"fermée"} (auto)`);
+        // if.player.view(...) → s'ouvre à l'approche, se referme wait(n) après le départ
+        if(near && d.state!=="open"){
+          d.state="open"; d.closeAt=null;
+          logOutput(`🚪 ${d.node.name} : ouverte (auto)`);
+        } else if(!near && d.state==="open" && d.closeAt===null){
+          d.closeAt=playTime+d.waitTime;
         }
       }
-      if(pendingInteract && near){
+
+      // la touche vient du script : if.key(x)
+      // la touche d'ouverture vient du script : if.key(x)
+      const keyHeld = !!playKeys[d.key];
+      if(near && keyHeld && !d.keyWasHeld){
         if(d.node.type==="codedoor" && !d.unlocked){
-          const entered = window.prompt(`Code pour "${d.node.name}" :`,"");
-          if(entered===d.node.doorCode){ d.unlocked=true; d.state="open"; logOutput(`🔓 ${d.node.name} déverrouillée`); }
-          else if(entered!==null){ logOutput(`🔒 Mauvais code pour "${d.node.name}"`,"error"); }
+          openCodeEntry(d);
         } else if(d.node.type==="door" || (d.node.type==="codedoor" && d.unlocked)){
-          d.state = d.state==="closed" ? "open" : "closed";
-          logOutput(`🚪 ${d.node.name} : ${d.state==="open"?"ouverte":"fermée"}`);
+          if(d.state==="closed"){
+            d.state="open";
+            d.closeAt = d.waitTime>0 ? playTime+d.waitTime : null; // wait(n) → refermeture auto
+            logOutput(`🚪 ${d.node.name} : ouverte`);
+          } else {
+            d.state="closed"; d.closeAt=null;
+            logOutput(`🚪 ${d.node.name} : fermée`);
+          }
         }
       }
+
+      d.keyWasHeld = keyHeld;
+
+      if(d.closeAt!==null && playTime>=d.closeAt){
+        d.state="closed"; d.closeAt=null;
+        logOutput(`🚪 ${d.node.name} : refermée (wait ${d.waitTime}s)`);
+      }
+
       const target = d.state==="open" ? 1 : 0;
       d.progress += (target-d.progress)*Math.min(1,dt*4);
-      const w=d.group.userData.width||2;
-      const rotY=d.group.rotation.y;
-      d.group.position.x = d.basePos.x + Math.cos(rotY)*w*d.progress;
-      d.group.position.z = d.basePos.z - Math.sin(rotY)*w*d.progress;
+      d.hinge.rotation.y = d.progress * d.openAngle; // angle lu dans rotation(...) du script
     });
     pendingInteract=false;
 
@@ -1522,6 +2461,10 @@ function startPlay(){
     playRenderer.render(playScene,playCamera);
   }
   playScene.userData.requestJump=()=>{ pendingJump=true; };
+  playScene.userData.bvasCtx={
+    jump:()=>{ if(grounded){ playerVelY=JUMP_SPEED; grounded=false; } },
+    respawn:()=>{ const pl=playScene.userData.player; pl.position.copy(playSpawnPos); playerVelY=0; }
+  };
   playScene.userData.requestInteract=()=>{ pendingInteract=true; };
   playLoop();
 }
@@ -1530,6 +2473,8 @@ function stopPlay(){
   isPlaying=false;
   playBtn.classList.remove("running"); playBtn.innerHTML='<span class="tb-icon">▶</span>Tester';
   playOverlay.classList.remove("active");
+  closeCodeEntry();
+  hideBvasMessage();
   logOutput("■ Test arrêté");
   if(playAnimId){ cancelAnimationFrame(playAnimId); playAnimId=null; }
   document.removeEventListener("keydown",onPlayKey);
@@ -1544,6 +2489,7 @@ function stopPlay(){
 }
 
 function onPlayKey(e){
+  if(codeEntryDoor) return; // the code-entry input handles its own keys
   playKeys[e.key.toLowerCase()]=true;
   if(e.code==="Space" && !e.repeat && playScene && playScene.userData.requestJump){
     playScene.userData.requestJump();
@@ -1634,10 +2580,11 @@ const ROOT_META={
   scriptgeneral:    {abbr:"SG",color:"var(--sg)"},
   replicatedstorage:{abbr:"RS",color:"var(--rs)"},
   players:          {abbr:"PL",color:"var(--pl)"},
-  spots:            {abbr:"SP",color:"var(--sp)"}
+  spots:            {abbr:"SP",color:"var(--sp)"},
+  ui:               {abbr:"UI",color:"var(--ui)"}
 };
 
-const PROP_ABBR={door:"PRT",autodoor:"AUT",codedoor:"COD",window:"WIN",table:"TBL",chair:"CHR"};
+const PROP_ABBR={door:"PRT",autodoor:"AUT",codedoor:"COD",window:"WIN",table:"TBL",chair:"CHR",tree:"ARB",pine:"SAP",bush:"BUI",rock:"ROC",lamp:"LMP",bench:"BNC"};
 
 function chipHTML(node){
   if(node.type==="block")   return `<span class="swatch" style="background:${node.color}"></span>`;
@@ -1647,6 +2594,12 @@ function chipHTML(node){
   if(node.type==="script")  return `<span class="chip solid" style="background:var(--scr)">{}</span>`;
   if(node.type==="genvisit")return `<span class="chip solid" style="background:var(--gen);color:#08131a">GEN</span>`;
   if(PROP_TYPES.includes(node.type)) return `<span class="chip solid" style="background:var(--sp);color:#2a1c08">${PROP_ABBR[node.type]}</span>`;
+  if(node.type==="uitext")  return `<span class="chip solid" style="background:var(--ui);color:#2a0e2a">TXT</span>`;
+  if(node.type==="glox")    return `<span class="chip solid" style="background:var(--glox);color:#fff">GLX</span>`;
+  if(node.type==="import3d")return `<span class="chip solid" style="background:#7cd992;color:#082a12">3D</span>`;
+  if(node.type==="humanoid")return `<span class="chip solid" style="background:var(--hum);color:#2a1a00">HUM</span>`;
+  if(node.type==="skeleton")return `<span class="chip outline" style="border-color:var(--accent);color:var(--accent)">•</span>`;
+  if(node.type==="uiimage") return `<span class="chip solid" style="background:var(--ui);color:#2a0e2a">IMG</span>`;
   return "";
 }
 
@@ -1654,12 +2607,12 @@ function esc(s){ return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;"
 
 function buildLi(id){
   const node=nodes[id];
-  const canExpand=["root","folder","model","block",...DOOR_TYPES].includes(node.type) && node.children.length>0;
+  const canExpand=["root","folder","model","block","humanoid",...DOOR_TYPES].includes(node.type) && node.children.length>0;
   const exp=expandedSet.has(id);
   const ins=allowedInserts(node);
   const canDel=node.type!=="root";
   let html=`<li><div class="node-row ${selectedId===id?"selected":""}" data-id="${id}">`;
-  if(node.children.length && ["root","folder","model","block",...DOOR_TYPES].includes(node.type)){
+  if(node.children.length && ["root","folder","model","block","humanoid",...DOOR_TYPES].includes(node.type)){
     html+=`<span class="toggle toggle-btn" data-id="${id}">${exp?"▾":"▸"}</span>`;
   } else {
     html+=`<span class="toggle empty">·</span>`;
@@ -1682,6 +2635,33 @@ function buildLi(id){
 function renderTree(){
   let html=""; ROOT_ORDER.forEach(r=>{ html+=buildLi(r); });
   document.getElementById("tree").innerHTML=html;
+  renderUILayer(document.getElementById("uiLayerEdit"));
+}
+
+function renderUILayer(container){
+  if(!container)return;
+  container.innerHTML="";
+  const uiRoot=nodes.ui; if(!uiRoot)return;
+  uiRoot.children.forEach(id=>{
+    const n=nodes[id];
+    if(!n)return;
+    if(n.type==="uitext"){
+      const el=document.createElement("div");
+      el.className="ui-el ui-text-el";
+      el.style.top=(n.top||0)+"%"; el.style.left=(n.left||0)+"%";
+      el.style.fontSize=(n.fontSize||24)+"px";
+      el.style.color=n.color||"#ffffff";
+      el.textContent=n.content||"";
+      container.appendChild(el);
+    } else if(n.type==="uiimage" && n.image){
+      const img=document.createElement("img");
+      img.className="ui-el ui-image-el";
+      img.style.top=(n.top||0)+"%"; img.style.left=(n.left||0)+"%";
+      img.style.width=(n.width||140)+"px"; img.style.height=(n.height||90)+"px";
+      img.src=n.image;
+      container.appendChild(img);
+    }
+  });
 }
 
 document.getElementById("tree").addEventListener("click",e=>{
@@ -1733,7 +2713,7 @@ function openAddMenu(btn){
 function selectNode(id){
   selectedId=id; renderTree(); renderProps(); highlightSelected(); buildGizmo();
   const node=nodes[id];
-  if(node.type==="script"||node.type==="genvisit"){ openScriptTab(id); }
+  if(node.type==="script"||node.type==="genvisit"||node.type==="glox"){ openScriptTab(id); }
   else if(obj3D[id]){ activeTab="viewport"; renderTabs(); switchTab(); }
 }
 
@@ -1747,7 +2727,7 @@ function renderTabs(){
   openTabs.forEach(id=>{
     const n=nodes[id]; if(!n)return;
     html+=`<div class="tab ${activeTab===id?"active":""}" data-tab="${id}">
-      <span>${n.type==="script"?"{} ":"▶ "}${esc(n.name)}</span>
+      <span>${n.type==="script"?"{} ":n.type==="glox"?"👁 ":"▶ "}${esc(n.name)}</span>
       <span class="tab-x" data-close="${id}">✕</span></div>`;
   });
   document.getElementById("tabbar").innerHTML=html;
@@ -1774,9 +2754,38 @@ function switchTab(){
 }
 function updateEditorStatus(){
   const n=nodes[activeTab]; if(!n)return;
+
+  if(n.type==="glox"){
+    editorStatus.innerHTML=
+      `<span class="lang-badge" style="background:var(--glox);color:#fff">GLOX</span>`
+      +`<span>${esc(n.name)}</span><span>·</span><span>Objet caché en Test jusqu'à révélation</span>`
+      +(n.enabled===false?`<span>· <span style="color:var(--warn)">désactivé</span></span>`:"");
+    return;
+  }
+
   const ctx=n.type==="script"?"Serveur":"Client (joueur)";
-  editorStatus.innerHTML=`<span class="lang-badge">CODAVASO</span><span>${esc(n.name)}</span><span>·</span><span>${ctx}</span>`
+  const lang=n.lang||"codavaso";
+  const opts=Object.keys(LANGUAGES).map(k=>
+    `<option value="${k}" ${lang===k?"selected":""}>${LANGUAGES[k].label}</option>`).join("");
+  editorStatus.innerHTML=
+    `<span class="lang-badge">${LANGUAGES[lang].badge}</span>`
+    +`<select id="langSelect" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:2px 6px;font-size:11px;font-family:inherit;">${opts}</select>`
+    +`<span>${esc(n.name)}</span><span>·</span><span>${ctx}</span>`
     +(n.enabled===false?`<span>· <span style="color:var(--warn)">désactivé</span></span>`:"");
+  const sel=document.getElementById("langSelect");
+  if(sel) sel.addEventListener("change",()=>{
+    const newLang=sel.value;
+    const isUntouched = n.code===starterCode(n.type,n.name,n.lang||"codavaso");
+    n.lang=newLang;
+    if(isUntouched){
+      n.code=starterCode(n.type,n.name,newLang);
+      editorTextarea.value=n.code;
+      showToast(`Langage : ${LANGUAGES[newLang].label} — modèle de départ chargé`);
+    } else {
+      showToast(`Langage : ${LANGUAGES[newLang].label} — ton code est conservé`);
+    }
+    updateEditorStatus();
+  });
 }
 editorTextarea.addEventListener("input",()=>{ const n=nodes[activeTab]; if(n)n.code=editorTextarea.value; });
 
@@ -1789,7 +2798,8 @@ const ROOT_DESC={
   scriptgeneral:"Code partagé entre systèmes.",
   replicatedstorage:"Accessible au serveur et aux clients.",
   players:"Scripts liés au joueur.",
-  spots:"Portes, fenêtres, tables et chaises prêtes à poser. Les portes s'ouvrent avec E en mode Test."
+  spots:"Portes, fenêtres, tables et chaises prêtes à poser. Les portes s'ouvrent avec E en mode Test.",
+  ui:"Interfaces affichées à l'écran : textes et images visibles par-dessus le jeu."
 };
 
 function renderProps(){
@@ -1810,8 +2820,15 @@ function renderProps(){
       html+=`<div class="field"><label>Couleur</label><input type="color" id="pColor" value="${node.color}"></div>`;
       html+=`<div class="field"><label>Texture (image)</label>
         <input type="file" id="pTextureFile" accept="image/*" style="font-size:11.5px;">
+        <button class="delete-btn" id="pDrawBtn" style="margin-top:6px;background:rgba(51,214,224,.1);border-color:rgba(51,214,224,.35);color:var(--accent);">🎨 Dessiner une texture</button>
         ${node.texture?`<button class="delete-btn" id="pTextureClear" style="margin-top:6px;">Retirer la texture</button>`:""}
       </div>`;
+      html+=`<div class="field"><label>Style de texture</label><select id="pTextureStyle">
+        <option value="normal" ${node.textureStyle==="normal"?"selected":""}>Normal</option>
+        <option value="faible" ${node.textureStyle==="faible"?"selected":""}>Faible</option>
+        <option value="fort" ${node.textureStyle==="fort"?"selected":""}>Fort</option>
+        <option value="realiste" ${node.textureStyle==="realiste"?"selected":""}>Réaliste</option>
+      </select></div>`;
       html+=`<div class="cb-row"><input type="checkbox" id="pTraverse" ${node.traverse?"checked":""}><div><div class="cb-label">Traverse</div><div class="cb-desc">Le joueur peut traverser ce bloc.</div></div></div>`;
       html+=`<div class="cb-row"><input type="checkbox" id="pFree" ${node.free?"checked":""}><div><div class="cb-label">Libre</div><div class="cb-desc">L'objet bouge quand le joueur le touche.</div></div></div>`;
       html+=`<div class="field"><label>Animation</label><select id="pAnimType">
@@ -1829,12 +2846,56 @@ function renderProps(){
       const ctx=node.type==="script"?"Serveur":"Client";
       html+=`<div class="chip-row"><span class="chip solid" style="background:${node.type==="script"?"var(--scr)":"var(--gen)"};color:#08131a">${ctx}</span></div>`;
       html+=`<div class="cb-row"><input type="checkbox" id="pEnabled" ${node.enabled?"checked":""}><div><div class="cb-label">Activé</div><div class="cb-desc">Décoché : ignoré.</div></div></div>`;
-      html+=`<div class="note-box">Éditez le code dans l'onglet en haut.</div>`;
+      html+=`<div class="field"><label>Langage</label><select id="pLang">
+        ${Object.keys(LANGUAGES).map(k=>`<option value="${k}" ${(node.lang||"codavaso")===k?"selected":""}>${LANGUAGES[k].label}</option>`).join("")}
+      </select></div>`;
+      html+=`<div class="note-box">${LANGUAGES[node.lang||"codavaso"].desc}<br><br>Éditez le code dans l'onglet en haut.</div>`;
+    }
+    if(node.type==="glox"){
+      html+=`<div class="chip-row"><span class="chip solid" style="background:var(--glox);color:#fff">GLOX</span></div>`;
+      html+=`<div class="cb-row"><input type="checkbox" id="pEnabled" ${node.enabled?"checked":""}><div><div class="cb-label">Activé</div><div class="cb-desc">Décoché : l'objet reste normalement visible.</div></div></div>`;
+      html+=`<div class="note-box">Attaché à "${esc(nodes[node.parent]?nodes[node.parent].name:"?")}" : cet objet reste visible dans l'éditeur, mais devient invisible en mode Test tant que l'action décrite dans le script ne s'est pas produite.<br><br>Éditez le script dans l'onglet en haut.</div>`;
+    }
+    if(node.type==="import3d"){
+      html+=`<div class="field"><label>Remplacer le fichier (.glb/.gltf)</label><input type="file" id="pImportFile" accept=".glb,.gltf" style="font-size:11.5px;"></div>`;
+      html+=`<div class="field"><label>Position X / Y / Z</label><div class="row3"><input type="number" step="0.5" id="pPx" value="${node.position.x}"><input type="number" step="0.5" id="pPy" value="${node.position.y}"><input type="number" step="0.5" id="pPz" value="${node.position.z}"></div></div>`;
+      html+=`<div class="field"><label>Rotation X / Y / Z (°)</label><div class="row3"><input type="number" step="15" id="pRx" value="${node.rotation.x||0}"><input type="number" step="15" id="pRy" value="${node.rotation.y||0}"><input type="number" step="15" id="pRz" value="${node.rotation.z||0}"></div></div>`;
+      html+=`<div class="field"><label>Taille (×)</label><input type="number" step="0.1" min="0.05" id="pScale" value="${node.scale||1}"></div>`;
+      html+=`<div class="note-box">Modèle importé depuis un fichier .glb/.gltf (Blender, Meshy...). La collision précise n'est pas encore gérée pour ces modèles — c'est décoratif pour l'instant.</div>`;
+    }
+    if(node.type==="humanoid"){
+      html+=`<div class="field"><label>Position X / Y / Z</label><div class="row3"><input type="number" step="0.5" id="pPx" value="${node.position.x}"><input type="number" step="0.5" id="pPy" value="${node.position.y}"><input type="number" step="0.5" id="pPz" value="${node.position.z}"></div></div>`;
+      html+=`<div class="note-box">Placé au centre de "${esc(nodes[node.parent]?nodes[node.parent].name:"?")}" par défaut — déplace-le où tu veux. Ajoute GLOX, Script, Genvisit ou Squelette à l'intérieur pour animer ton personnage. Marqueur visible uniquement dans l'éditeur, invisible en mode Test.</div>`;
+    }
+    if(node.type==="skeleton"){
+      html+=`<div class="field"><label>Position X / Y / Z</label><div class="row3"><input type="number" step="0.25" id="pPx" value="${node.position.x}"><input type="number" step="0.25" id="pPy" value="${node.position.y}"><input type="number" step="0.25" id="pPz" value="${node.position.z}"></div></div>`;
+      html+=`<div class="note-box">Point de repère facultatif pour tes mouvements d'animation — ajoutes-en plusieurs pour marquer les articulations. Invisible en mode Test.</div>`;
     }
     if(PROP_TYPES.includes(node.type)){
       html+=`<div class="field"><label>Couleur</label><input type="color" id="pColor" value="${node.color}"></div>`;
+      html+=`<div class="field"><label>Texture (image)</label>
+        <input type="file" id="pTextureFile" accept="image/*" style="font-size:11.5px;">
+        <button class="delete-btn" id="pDrawBtn" style="margin-top:6px;background:rgba(51,214,224,.1);border-color:rgba(51,214,224,.35);color:var(--accent);">🎨 Dessiner une texture</button>
+        ${node.texture?`<button class="delete-btn" id="pTextureClear" style="margin-top:6px;">Retirer la texture</button>`:""}
+      </div>`;
+      html+=`<div class="field"><label>Style de texture</label><select id="pTextureStyle">
+        <option value="normal" ${node.textureStyle==="normal"?"selected":""}>Normal</option>
+        <option value="faible" ${node.textureStyle==="faible"?"selected":""}>Faible</option>
+        <option value="fort" ${node.textureStyle==="fort"?"selected":""}>Fort</option>
+        <option value="realiste" ${node.textureStyle==="realiste"?"selected":""}>Réaliste</option>
+      </select></div>`;
+      html+=`<div class="cb-row"><input type="checkbox" id="pTraverse" ${node.traverse?"checked":""}><div><div class="cb-label">Traverse</div><div class="cb-desc">Le joueur peut traverser cet objet.</div></div></div>`;
+      html+=`<div class="cb-row"><input type="checkbox" id="pFree" ${node.free?"checked":""}><div><div class="cb-label">Libre</div><div class="cb-desc">L'objet bouge quand le joueur le touche.</div></div></div>`;
+      html+=`<div class="field"><label>Animation</label><select id="pAnimType">
+        <option value="none" ${node.anim.type==="none"?"selected":""}>Aucune</option>
+        <option value="rotate" ${node.anim.type==="rotate"?"selected":""}>Rotation continue</option>
+        <option value="bob" ${node.anim.type==="bob"?"selected":""}>Va-et-vient (haut/bas)</option>
+        <option value="pulse" ${node.anim.type==="pulse"?"selected":""}>Pulsation (taille)</option>
+      </select></div>`;
+      html+=`<div class="field"><label>Vitesse d'animation</label><input type="number" step="0.1" min="0.1" id="pAnimSpeed" value="${node.anim.speed}"></div>`;
       html+=`<div class="field"><label>Position X / Y / Z</label><div class="row3"><input type="number" step="0.5" id="pPx" value="${node.position.x}"><input type="number" step="0.5" id="pPy" value="${node.position.y}"><input type="number" step="0.5" id="pPz" value="${node.position.z}"></div></div>`;
-      html+=`<div class="field"><label>Rotation (°)</label><input type="number" step="15" id="pRy" value="${node.rotation.y||0}"></div>`;
+      html+=`<div class="field"><label>Rotation X / Y / Z (°)</label><div class="row3"><input type="number" step="15" id="pRx" value="${node.rotation.x||0}"><input type="number" step="15" id="pRy" value="${node.rotation.y||0}"><input type="number" step="15" id="pRz" value="${node.rotation.z||0}"></div></div>`;
+      html+=`<div class="field"><label>Taille (×)</label><input type="number" step="0.1" min="0.1" id="pScale" value="${node.scale||1}"></div>`;
       if(node.type==="door"||node.type==="autodoor"||node.type==="codedoor"){
         html+=`<div class="field"><label>Largeur</label><input type="number" step="0.5" min="1" id="pWidth" value="${node.width}"></div>`;
         html+=`<div class="note-box">${node.type==="autodoor"?"S'ouvre automatiquement quand le joueur s'approche.":node.type==="codedoor"?"Le joueur doit entrer le bon code avec E pour l'ouvrir.":"Appuie sur E à proximité pour ouvrir/fermer."}</div>`;
@@ -1842,6 +2903,32 @@ function renderProps(){
       if(node.type==="codedoor"){
         html+=`<div class="field"><label>Code</label><input type="text" id="pDoorCode" value="${esc(node.doorCode||"")}" maxlength="12"></div>`;
       }
+    }
+    if(node.type==="uitext"){
+      const onBlock=nodes[node.parent] && nodes[node.parent].type!=="root";
+      html+=`<div class="field"><label>Texte</label><input type="text" id="pUiContent" value="${esc(node.content||"")}"></div>`;
+      html+=`<div class="field"><label>Couleur du texte</label><input type="color" id="pUiColor" value="${node.color||"#ffffff"}"></div>`;
+      html+=`<div class="field"><label>Taille du texte</label><input type="number" min="8" step="1" id="pUiFontSize" value="${node.fontSize||24}"></div>`;
+      if(!onBlock){
+        html+=`<div class="field"><label>Position écran — Haut / Gauche (%)</label><div class="row3">
+          <input type="number" step="1" id="pUiTop" value="${node.top||0}">
+          <input type="number" step="1" id="pUiLeft" value="${node.left||0}"></div></div>`;
+        html+=`<div class="note-box">Affiché par-dessus l'écran, visible aussi en mode Test.</div>`;
+      } else {
+        html+=`<div class="note-box">Attaché à "${esc(nodes[node.parent].name)}" — affiché comme une étiquette flottante au-dessus de l'objet.</div>`;
+      }
+    }
+    if(node.type==="uiimage"){
+      html+=`<div class="field"><label>Image</label>
+        <input type="file" id="pUiImageFile" accept="image/*" style="font-size:11.5px;">
+        <button class="delete-btn" id="pUiDrawBtn" style="margin-top:6px;background:rgba(51,214,224,.1);border-color:rgba(51,214,224,.35);color:var(--accent);">🎨 Dessiner l'image</button>
+      </div>`;
+      html+=`<div class="field"><label>Position écran — Haut / Gauche (%)</label><div class="row3">
+        <input type="number" step="1" id="pUiTop" value="${node.top||0}">
+        <input type="number" step="1" id="pUiLeft" value="${node.left||0}"></div></div>`;
+      html+=`<div class="field"><label>Taille — Largeur / Hauteur (px)</label><div class="row3">
+        <input type="number" step="10" min="10" id="pUiW" value="${node.width||140}">
+        <input type="number" step="10" min="10" id="pUiH" value="${node.height||90}"></div></div>`;
     }
     html+=`<div class="prop-sep"></div>`;
     html+=`<button class="delete-btn" id="pDel">🗑 Supprimer</button>`;
@@ -1852,13 +2939,68 @@ function renderProps(){
 
 function labelFor(t){
   return {folder:"Dossier",model:"Modèle",block:"Bloc",script:"Script (serveur)",genvisit:"Genvisit (client)",
-    door:"Porte",autodoor:"Porte automatique",codedoor:"Porte à code",window:"Fenêtre",table:"Table",chair:"Chaise"}[t]||"";
+    door:"Porte",autodoor:"Porte automatique",codedoor:"Porte à code",window:"Fenêtre",table:"Table",chair:"Chaise",
+    tree:"Arbre",pine:"Sapin",bush:"Buisson",rock:"Rocher",lamp:"Lampadaire",bench:"Banc",
+    uitext:"Texte UI",uiimage:"Image UI",glox:"GLOX (objet caché)",import3d:"Modèle 3D importé",
+    humanoid:"Humanoid",skeleton:"Point de squelette"}[t]||"";
+}
+
+/* ── IMPORT 3D (fichiers .glb/.gltf faits sur Blender, Meshy, etc.) ── */
+function spawnImport3D(node,parent){
+  const group=new THREE.Group();
+  group.position.set(node.position.x,node.position.y,node.position.z);
+  group.rotation.set(THREE.MathUtils.degToRad(node.rotation.x||0),THREE.MathUtils.degToRad(node.rotation.y||0),THREE.MathUtils.degToRad(node.rotation.z||0));
+  const s=node.scale||1; group.scale.set(s,s,s);
+  group.userData.nodeId=node.id;
+  const p=obj3D[parent.id]||worldGroup;
+  p.add(group); obj3D[node.id]=group; propMeshes.push(group);
+
+  if(node.modelData){
+    try{
+      const loader=new THREE.GLTFLoader();
+      if(loader && typeof loader.load==="function"){
+        loader.load(node.modelData, gltf=>{
+          try{
+            gltf.scene.traverse(c=>{ if(c.isMesh) c.userData.nodeId=node.id; });
+            group.add(gltf.scene);
+          }catch(e){}
+        }, undefined, err=>{
+          if(typeof logOutput==="function") logOutput(`Erreur d'import 3D pour "${node.name}"`,"error");
+          showToast(`Impossible de charger "${node.name}" (fichier .glb/.gltf attendu)`);
+        });
+      }
+    }catch(e){ /* GLTFLoader indisponible dans cet environnement */ }
+  }
+  return group;
+}
+function importModelFile(file){
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    const id=uid();
+    const parent=nodes.workspace;
+    const name=nextName(parent,"Modele3D");
+    const node={id,name,type:"import3d",parent:"workspace",children:[],
+      modelData:reader.result, position:nextPos(), rotation:{x:0,y:0,z:0}, scale:1};
+    node.position.y=0;
+    nodes[id]=node; parent.children.push(id); expandedSet.add("workspace");
+    spawnImport3D(node,parent);
+    renderTree(); selectNode(id);
+    showToast(`＋ "${name}" importé — chargement en cours…`);
+  };
+  reader.readAsDataURL(file);
 }
 
 function rebuildProp(node){
   const parent=nodes[node.parent];
   dispose3D(node.id);
   spawnProp(node,parent);
+  // re-attach any UI children that lived on this prop
+  node.children.forEach(cid=>{
+    const c=nodes[cid];
+    if(c && UI_TYPES.includes(c.type)){ dispose3D(cid); spawnUIOnHost(c); }
+  });
+  highlightSelected();
 }
 
 function bindProps(node){
@@ -1886,6 +3028,15 @@ function bindProps(node){
         renderProps();
       });
     }
+    const pts=q("pTextureStyle"); if(pts){
+      pts.addEventListener("change",()=>{
+        node.textureStyle=pts.value;
+        const m=obj3D[node.id]; if(m){ applyTextureStyle(m,node); applyTexture(m,node); }
+      });
+    }
+    const pdb=q("pDrawBtn"); if(pdb){
+      pdb.addEventListener("click",()=>openDrawEditor(node));
+    }
     const pt=q("pTraverse"); if(pt){ pt.addEventListener("change",()=>{ node.traverse=pt.checked; const m=obj3D[node.id]; if(m){m.material.transparent=node.traverse;m.material.opacity=node.traverse?.35:1;} }); }
     const pf=q("pFree"); if(pf){ pf.addEventListener("change",()=>{ node.free=pf.checked; }); }
     const pat=q("pAnimType"); if(pat){ pat.addEventListener("change",()=>{ node.anim.type=pat.value; }); }
@@ -1903,19 +3054,224 @@ function bindProps(node){
       el.addEventListener("input",()=>{ node.rotation[ax]=parseFloat(el.value)||0; const m=obj3D[node.id]; if(m)m.rotation[ax]=THREE.MathUtils.degToRad(node.rotation[ax]); highlightSelected(); });
     });
   }
-  if(PROP_TYPES.includes(node.type)){
-    const pc=q("pColor"); if(pc){ pc.addEventListener("input",()=>{ node.color=pc.value; const g=obj3D[node.id]; if(g) g.traverse(c=>{ if(c.material && c.material.color) c.material.color.set(node.color); }); renderTree(); }); }
+  if(node.type==="import3d"){
+    const pif=q("pImportFile"); if(pif){
+      pif.addEventListener("change",()=>{
+        const f=pif.files[0]; if(!f)return;
+        const r=new FileReader();
+        r.onload=()=>{ node.modelData=r.result; dispose3D(node.id); spawnImport3D(node,nodes[node.parent]); showToast("Modèle remplacé"); };
+        r.readAsDataURL(f);
+      });
+    }
     [["pPx","x"],["pPy","y"],["pPz","z"]].forEach(([eid,ax])=>{
       const el=q(eid); if(!el)return;
       el.addEventListener("input",()=>{ node.position[ax]=parseFloat(el.value)||0; const g=obj3D[node.id]; if(g) g.position[ax]=node.position[ax]; });
     });
-    const pry=q("pRy"); if(pry){ pry.addEventListener("input",()=>{ node.rotation.y=parseFloat(pry.value)||0; const g=obj3D[node.id]; if(g) g.rotation.y=THREE.MathUtils.degToRad(node.rotation.y); }); }
+    [["pRx","x"],["pRy","y"],["pRz","z"]].forEach(([eid,ax])=>{
+      const el=q(eid); if(!el)return;
+      el.addEventListener("input",()=>{ node.rotation[ax]=parseFloat(el.value)||0; const g=obj3D[node.id]; if(g) g.rotation[ax]=THREE.MathUtils.degToRad(node.rotation[ax]); });
+    });
+    const psc=q("pScale"); if(psc){ psc.addEventListener("input",()=>{ node.scale=Math.max(.05,parseFloat(psc.value)||1); const g=obj3D[node.id]; if(g) g.scale.set(node.scale,node.scale,node.scale); }); }
+  }
+  if(node.type==="humanoid"||node.type==="skeleton"){
+    [["pPx","x"],["pPy","y"],["pPz","z"]].forEach(([eid,ax])=>{
+      const el=q(eid); if(!el)return;
+      el.addEventListener("input",()=>{ node.position[ax]=parseFloat(el.value)||0; const g=obj3D[node.id]; if(g) g.position[ax]=node.position[ax]; });
+    });
+  }
+  if(PROP_TYPES.includes(node.type)){
+    const pc=q("pColor"); if(pc){ pc.addEventListener("input",()=>{ node.color=pc.value; rebuildProp(node); renderTree(); }); }
+    const ptf=q("pTextureFile"); if(ptf){
+      ptf.addEventListener("change",()=>{
+        const f=ptf.files[0]; if(!f)return;
+        const r=new FileReader();
+        r.onload=()=>{ node.texture=r.result; rebuildProp(node); renderProps(); };
+        r.readAsDataURL(f);
+      });
+    }
+    const ptc=q("pTextureClear"); if(ptc){ ptc.addEventListener("click",()=>{ node.texture=""; rebuildProp(node); renderProps(); }); }
+    const pdb=q("pDrawBtn"); if(pdb){ pdb.addEventListener("click",()=>openDrawEditor(node)); }
+    const pts=q("pTextureStyle"); if(pts){ pts.addEventListener("change",()=>{ node.textureStyle=pts.value; rebuildProp(node); }); }
+    const pt=q("pTraverse"); if(pt){ pt.addEventListener("change",()=>{ node.traverse=pt.checked; rebuildProp(node); }); }
+    const pf=q("pFree"); if(pf){ pf.addEventListener("change",()=>{ node.free=pf.checked; }); }
+    const pat=q("pAnimType"); if(pat){ pat.addEventListener("change",()=>{ node.anim.type=pat.value; }); }
+    const pas=q("pAnimSpeed"); if(pas){ pas.addEventListener("input",()=>{ node.anim.speed=Math.max(.1,parseFloat(pas.value)||1); }); }
+    const psc=q("pScale"); if(psc){ psc.addEventListener("input",()=>{ node.scale=Math.max(.1,parseFloat(psc.value)||1); const g=obj3D[node.id]; if(g) g.scale.set(node.scale,node.scale,node.scale); }); }
+    [["pPx","x"],["pPy","y"],["pPz","z"]].forEach(([eid,ax])=>{
+      const el=q(eid); if(!el)return;
+      el.addEventListener("input",()=>{ node.position[ax]=parseFloat(el.value)||0; const g=obj3D[node.id]; if(g) g.position[ax]=node.position[ax]; });
+    });
+    [["pRx","x"],["pRy","y"],["pRz","z"]].forEach(([eid,ax])=>{
+      const el=q(eid); if(!el)return;
+      el.addEventListener("input",()=>{ node.rotation[ax]=parseFloat(el.value)||0; const g=obj3D[node.id]; if(g) g.rotation[ax]=THREE.MathUtils.degToRad(node.rotation[ax]); });
+    });
     const pw=q("pWidth"); if(pw){ pw.addEventListener("input",()=>{ node.width=Math.max(1,parseFloat(pw.value)||1); rebuildProp(node); }); }
     const pcode=q("pDoorCode"); if(pcode){ pcode.addEventListener("input",()=>{ node.doorCode=pcode.value; }); }
+  }
+  if(UI_TYPES.includes(node.type)){
+    const refreshUI=()=>{
+      renderUILayer(document.getElementById("uiLayerEdit"));
+      refreshUISprite(node);
+    };
+    const puc=q("pUiContent"); if(puc){ puc.addEventListener("input",()=>{ node.content=puc.value; refreshUI(); }); }
+    const pucol=q("pUiColor"); if(pucol){ pucol.addEventListener("input",()=>{ node.color=pucol.value; refreshUI(); }); }
+    const pufs=q("pUiFontSize"); if(pufs){ pufs.addEventListener("input",()=>{ node.fontSize=Math.max(8,parseFloat(pufs.value)||24); refreshUI(); }); }
+    const put=q("pUiTop"); if(put){ put.addEventListener("input",()=>{ node.top=parseFloat(put.value)||0; refreshUI(); }); }
+    const pul=q("pUiLeft"); if(pul){ pul.addEventListener("input",()=>{ node.left=parseFloat(pul.value)||0; refreshUI(); }); }
+    const puw=q("pUiW"); if(puw){ puw.addEventListener("input",()=>{ node.width=Math.max(10,parseFloat(puw.value)||140); refreshUI(); }); }
+    const puh=q("pUiH"); if(puh){ puh.addEventListener("input",()=>{ node.height=Math.max(10,parseFloat(puh.value)||90); refreshUI(); }); }
+    const puif=q("pUiImageFile"); if(puif){
+      puif.addEventListener("change",()=>{
+        const f=puif.files[0]; if(!f)return;
+        const r=new FileReader();
+        r.onload=()=>{ node.image=r.result; refreshUI(); };
+        r.readAsDataURL(f);
+      });
+    }
+    const pudb=q("pUiDrawBtn"); if(pudb){ pudb.addEventListener("click",()=>openDrawEditor(node,"image")); }
+  }
+  const plang=q("pLang"); if(plang){
+    plang.addEventListener("change",()=>{
+      const isUntouched = node.code===starterCode(node.type,node.name,node.lang||"codavaso");
+      node.lang=plang.value;
+      if(isUntouched){
+        node.code=starterCode(node.type,node.name,node.lang);
+        if(activeTab===node.id) editorTextarea.value=node.code;
+      }
+      if(activeTab===node.id) updateEditorStatus();
+      renderProps();
+    });
   }
   const pe=q("pEnabled"); if(pe){ pe.addEventListener("change",()=>{ node.enabled=pe.checked; if(activeTab===node.id)updateEditorStatus(); }); }
   const pd=q("pDel"); if(pd){ pd.addEventListener("click",()=>doDelete(node.id)); }
 }
+
+/* ═══════════════════════════════════════
+   DRAW EDITOR
+═══════════════════════════════════════ */
+const drawModal=document.getElementById("drawModal");
+const drawCanvas=document.getElementById("drawCanvas");
+const dctx=drawCanvas.getContext ? drawCanvas.getContext("2d") : null;
+let drawTarget=null, drawMode="texture";
+let drawTool="pen", drawColor="#33d6e0", drawSize=6, drawFill=false;
+let drawing=false, startX=0, startY=0, snapshot=null;
+
+function clearDrawCanvas(){
+  if(!dctx)return;
+  dctx.fillStyle="#ffffff";
+  dctx.fillRect(0,0,drawCanvas.width,drawCanvas.height);
+}
+clearDrawCanvas();
+
+function openDrawEditor(node,mode){
+  if(!dctx){ showToast("L'éditeur de dessin n'est pas disponible ici."); return; }
+  drawTarget=node; drawMode=mode||"texture";
+  document.getElementById("drawTitle").textContent =
+    drawMode==="image" ? `🎨 Dessiner l'image — ${node.name}` : `🎨 Dessiner une texture — ${node.name}`;
+  const existing = drawMode==="image" ? node.image : node.texture;
+  clearDrawCanvas();
+  if(existing){
+    const img=new Image();
+    img.onload=()=>dctx.drawImage(img,0,0,drawCanvas.width,drawCanvas.height);
+    img.src=existing;
+  }
+  drawModal.classList.add("active");
+}
+function closeDrawEditor(){ drawModal.classList.remove("active"); drawTarget=null; }
+
+document.querySelectorAll(".draw-tool[data-tool]").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    document.querySelectorAll(".draw-tool[data-tool]").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    drawTool=btn.dataset.tool;
+  });
+});
+document.getElementById("drawColor").addEventListener("input",e=>drawColor=e.target.value);
+document.getElementById("drawSize").addEventListener("input",e=>drawSize=parseInt(e.target.value,10));
+document.getElementById("drawFillToggle").addEventListener("click",e=>{
+  drawFill=!drawFill;
+  e.target.textContent="Remplir : "+(drawFill?"oui":"non");
+  e.target.classList.toggle("active",drawFill);
+});
+document.getElementById("drawClear").addEventListener("click",clearDrawCanvas);
+document.getElementById("drawClose").addEventListener("click",closeDrawEditor);
+document.getElementById("drawCancel").addEventListener("click",closeDrawEditor);
+document.getElementById("drawImportBtn").addEventListener("click",()=>document.getElementById("drawImportFile").click());
+document.getElementById("drawImportFile").addEventListener("change",e=>{
+  const f=e.target.files[0]; if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{
+    const img=new Image();
+    img.onload=()=>dctx.drawImage(img,0,0,drawCanvas.width,drawCanvas.height);
+    img.src=r.result;
+  };
+  r.readAsDataURL(f);
+  e.target.value="";
+});
+document.getElementById("drawSave").addEventListener("click",()=>{
+  if(!drawTarget||!dctx)return;
+  const data=drawCanvas.toDataURL("image/png");
+  if(drawMode==="image"){
+    drawTarget.image=data;
+    renderUILayer(document.getElementById("uiLayerEdit"));
+  } else {
+    drawTarget.texture=data;
+    const m=obj3D[drawTarget.id]; if(m) applyTexture(m,drawTarget);
+  }
+  closeDrawEditor(); renderProps();
+  showToast("🎨 Dessin appliqué");
+});
+
+function drawPos(e){
+  const r=drawCanvas.getBoundingClientRect();
+  return {
+    x:(e.clientX-r.left)*(drawCanvas.width/r.width),
+    y:(e.clientY-r.top)*(drawCanvas.height/r.height)
+  };
+}
+drawCanvas.addEventListener("pointerdown",e=>{
+  if(!dctx)return;
+  const p=drawPos(e);
+  if(drawTool==="text"){
+    const txt=prompt("Texte à écrire :","");
+    if(txt){
+      dctx.fillStyle=drawColor;
+      dctx.font=`bold ${Math.max(12,drawSize*4)}px 'Space Grotesk', sans-serif`;
+      dctx.textBaseline="middle";
+      dctx.fillText(txt,p.x,p.y);
+    }
+    return;
+  }
+  drawing=true; startX=p.x; startY=p.y;
+  snapshot=dctx.getImageData(0,0,drawCanvas.width,drawCanvas.height);
+  if(drawTool==="pen"||drawTool==="eraser"){
+    dctx.beginPath(); dctx.moveTo(p.x,p.y);
+  }
+  drawCanvas.setPointerCapture(e.pointerId);
+});
+drawCanvas.addEventListener("pointermove",e=>{
+  if(!drawing||!dctx)return;
+  const p=drawPos(e);
+  dctx.lineCap="round"; dctx.lineJoin="round"; dctx.lineWidth=drawSize;
+  if(drawTool==="pen"||drawTool==="eraser"){
+    dctx.strokeStyle = drawTool==="eraser" ? "#ffffff" : drawColor;
+    dctx.lineTo(p.x,p.y); dctx.stroke();
+    return;
+  }
+  dctx.putImageData(snapshot,0,0);
+  dctx.strokeStyle=drawColor; dctx.fillStyle=drawColor;
+  if(drawTool==="line"){
+    dctx.beginPath(); dctx.moveTo(startX,startY); dctx.lineTo(p.x,p.y); dctx.stroke();
+  } else if(drawTool==="rect"){
+    const w=p.x-startX, h=p.y-startY;
+    if(drawFill) dctx.fillRect(startX,startY,w,h); else dctx.strokeRect(startX,startY,w,h);
+  } else if(drawTool==="circle"){
+    const rad=Math.hypot(p.x-startX,p.y-startY);
+    dctx.beginPath(); dctx.arc(startX,startY,rad,0,Math.PI*2);
+    if(drawFill) dctx.fill(); else dctx.stroke();
+  }
+});
+drawCanvas.addEventListener("pointerup",()=>{ drawing=false; snapshot=null; });
 
 /* ═══════════════════════════════════════
    INIT
@@ -1925,4 +3281,4 @@ renderTree(); renderTabs(); switchTab(); renderProps();
 })();
 </script>
 </body>
-</html>
+</html>↨
